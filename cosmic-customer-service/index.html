@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
+<meta name="theme-color" content="#07080b" />
+<title>宇宙客服中心</title>
+<style>
+:root{--bg:#07080b;--panel:rgba(255,255,255,.055);--line:rgba(255,255,255,.09);--text:#eef3f6;--muted:#8d98a2;--accent:#b6ffd8;--warn:#ffd3a6}*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:radial-gradient(circle at 50% -15%,rgba(105,255,202,.11),transparent 38%),linear-gradient(#07080b,#0a0d11 55%,#050608);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","PingFang SC","Microsoft YaHei",sans-serif}body{min-height:100svh;display:flex;justify-content:center}.app{width:min(100%,560px);min-height:100svh;padding:calc(env(safe-area-inset-top) + 18px) 18px calc(env(safe-area-inset-bottom) + 24px);display:flex;flex-direction:column}.top{display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--muted);letter-spacing:.13em}.status{color:var(--accent)}h1{font-size:34px;margin:28px 0 8px;letter-spacing:-.04em}.sub{font-size:14px;line-height:1.7;color:var(--muted)}.panel{margin-top:18px;padding:18px;border-radius:22px;background:var(--panel);border:1px solid var(--line);backdrop-filter:blur(15px);box-shadow:0 22px 70px rgba(0,0,0,.28)}.label{font-size:12px;color:var(--muted);margin-bottom:10px}textarea{width:100%;min-height:120px;resize:none;border:1px solid var(--line);border-radius:16px;background:rgba(0,0,0,.18);color:var(--text);padding:14px;font-size:17px;line-height:1.6;outline:none}textarea:focus{border-color:rgba(182,255,216,.35)}.chips{display:flex;gap:8px;overflow:auto;padding:12px 0 2px;scrollbar-width:none}.chips::-webkit-scrollbar{display:none}.chip{flex:0 0 auto;border:1px solid var(--line);background:rgba(255,255,255,.045);color:var(--muted);padding:9px 12px;border-radius:999px;font-size:12px}.primary{margin-top:14px;width:100%;border:0;border-radius:17px;padding:16px 18px;background:var(--accent);color:#03120d;font-size:16px;font-weight:750}.primary:active,.chip:active,.ghost:active{transform:scale(.985)}.ticket{display:none;margin-top:18px}.ticket.show{display:block}.ticket-head{display:flex;justify-content:space-between;gap:12px;font-size:11px;color:var(--muted);letter-spacing:.08em}.dept{margin-top:18px;color:var(--warn);font-size:13px}.reply{margin-top:10px;font-size:19px;line-height:1.9;white-space:pre-line}.eta{margin-top:16px;padding-top:14px;border-top:1px solid var(--line);font-size:12px;color:var(--muted);line-height:1.7}.rate{display:flex;gap:6px;margin-top:14px}.star{border:0;background:transparent;color:#69737c;font-size:24px;padding:2px}.star.on{color:#f6d58c}.row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}.ghost{border:1px solid var(--line);background:rgba(255,255,255,.045);color:var(--text);border-radius:15px;padding:13px;font-size:13px}.history{display:none;margin-top:12px;max-height:260px;overflow:auto;padding:4px 2px}.history.show{display:block}.hitem{padding:12px 0;border-bottom:1px dashed rgba(255,255,255,.08);font-size:12px;line-height:1.6;color:var(--muted)}.hitem b{color:var(--text)}.footer{margin-top:auto;padding-top:22px;text-align:center;color:#59626a;font-size:10px;letter-spacing:.08em}.flash{animation:flash .25s ease}@keyframes flash{50%{filter:brightness(1.35)}}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="top"><span>UNIVERSAL SUPPORT CENTER</span><span class="status">● 仍未下班</span></div>
+  <h1>宇宙客服中心</h1>
+  <div class="sub">对现实不满意？提交工单。我们保证认真登记，绝不保证解决。</div>
+
+  <section class="panel">
+    <div class="label">请描述您对宇宙规则的不满</div>
+    <textarea id="complaint" placeholder="例如：为什么星期一存在？"></textarea>
+    <div class="chips">
+      <button class="chip">为什么要上班？</button>
+      <button class="chip">为什么人不能读档？</button>
+      <button class="chip">为什么睡觉这么浪费时间？</button>
+      <button class="chip">为什么钱不能自己长出来？</button>
+      <button class="chip">为什么红灯总在我赶时间时出现？</button>
+    </div>
+    <button class="primary" id="submit">提交宇宙工单</button>
+  </section>
+
+  <section class="panel ticket" id="ticket">
+    <div class="ticket-head"><span id="ticketId">工单 #U-000000</span><span id="ticketTime">刚刚</span></div>
+    <div class="dept" id="dept">已转交：现实维护部</div>
+    <div class="reply" id="reply"></div>
+    <div class="eta" id="eta"></div>
+    <div class="label" style="margin-top:14px">请评价本次毫无帮助的服务</div>
+    <div class="rate" id="rate"></div>
+    <div class="row">
+      <button class="ghost" id="again">继续投诉</button>
+      <button class="ghost" id="historyBtn">历史工单</button>
+    </div>
+    <div class="history" id="history"></div>
+  </section>
+
+  <div class="footer">ERDAN LAB · 本地保存 · 本中心对现实结果不承担责任</div>
+</div>
+<script>
+const departments=['时间管理局第7科','现实维护部','概率与巧合委员会','人类体验优化处','引力与跌倒事务科','情绪天气管理站','因果关系仲裁庭','星期制度遗留办公室','睡眠强制执行组','未知问题转办中心'];
+const openings=['您好，您的投诉已成功进入宇宙级排队系统。','感谢反馈。经初步核查，您描述的问题确实长期存在。','系统已检测到您的不满，但暂未检测到修改现实的权限。','经第 19 次自动复核，本中心确认：这不是您的错，也不是我们会处理的问题。','您的工单已被三名虚拟专员看过，其中两名选择了忽略。'];
+const middles=['该规则属于早期宇宙版本遗留机制，目前仍与 8,431 项基础现实强绑定。','相关部门曾尝试修复，但测试环境因此出现了 17 分钟没有星期二的严重事故。','工程师表示可以改，但修改后可能导致猫不再愿意钻纸箱，因此方案被永久搁置。','根据《现实稳定性优先条例》，个人舒适度暂不属于高优先级指标。','我们已为您提交“为什么不能更合理一点”的内部建议，但该建议自文明诞生起已有大量重复记录。'];
+const endings=['建议您暂时接受现实，并在情绪允许时再次投诉。','如问题持续存在，请等待下一次宇宙大版本更新。','本工单将自动关闭，但您的不满会被象征性保留 30 天。','如果您认为处理结果荒谬，请放心，这与当前系统设计高度一致。','感谢您使用宇宙客服中心。我们理解您的感受，但理解目前不等于解决。'];
+const etas=['预计处理时间：约 14,000 年。','预计处理时间：3 个文明周期。','预计处理时间：等待下一次现实重启。','预计处理时间：无法估算，系统建议您先去吃饭。','预计处理时间：比您能接受的稍久一点。'];
+function pick(a){return a[Math.floor(Math.random()*a.length)]}
+function makeId(){return 'U-'+Math.floor(100000+Math.random()*900000)}
+function saveTicket(t){const h=JSON.parse(localStorage.getItem('cosmic_tickets')||'[]');h.unshift(t);localStorage.setItem('cosmic_tickets',JSON.stringify(h.slice(0,30)));}
+function renderHistory(){const box=document.getElementById('history');const h=JSON.parse(localStorage.getItem('cosmic_tickets')||'[]');box.innerHTML=h.length?h.map(x=>`<div class="hitem"><b>${x.id}</b> · ${x.dept}<br>${x.complaint}<br>评级：${x.rating||'未评价'}</div>`).join(''):'<div class="hitem">暂无历史工单，现实暂时没有收到您的投诉。</div>';}
+function renderStars(current=0){const r=document.getElementById('rate');r.innerHTML='';for(let i=1;i<=5;i++){const b=document.createElement('button');b.className='star'+(i<=current?' on':'');b.textContent='★';b.onclick=()=>rateTicket(i);r.appendChild(b)}}
+function rateTicket(v){renderStars(v);const h=JSON.parse(localStorage.getItem('cosmic_tickets')||'[]');if(h.length){h[0].rating=v+'星';localStorage.setItem('cosmic_tickets',JSON.stringify(h));renderHistory();}}
+function submitComplaint(){const input=document.getElementById('complaint');const text=input.value.trim();if(!text){input.placeholder='宇宙客服无法受理空气，请先写点什么。';input.focus();return;}const id=makeId(),dept=pick(departments),reply=`${pick(openings)}\n\n${pick(middles)}\n\n${pick(endings)}`,eta=pick(etas);document.getElementById('ticketId').textContent='工单 #'+id;document.getElementById('ticketTime').textContent=new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'});document.getElementById('dept').textContent='已转交：'+dept;document.getElementById('reply').textContent=reply;document.getElementById('eta').textContent=eta;document.getElementById('ticket').classList.add('show');document.getElementById('ticket').classList.remove('flash');void document.getElementById('ticket').offsetWidth;document.getElementById('ticket').classList.add('flash');renderStars(0);saveTicket({id,dept,complaint:text,reply,eta,rating:null,time:Date.now()});renderHistory();document.getElementById('ticket').scrollIntoView({behavior:'smooth',block:'start'});}
+document.querySelectorAll('.chip').forEach(b=>b.addEventListener('click',()=>document.getElementById('complaint').value=b.textContent));
+document.getElementById('submit').addEventListener('click',submitComplaint);
+document.getElementById('again').addEventListener('click',()=>{document.getElementById('complaint').value='';document.getElementById('complaint').focus();window.scrollTo({top:0,behavior:'smooth'});});
+document.getElementById('historyBtn').addEventListener('click',()=>{document.getElementById('history').classList.toggle('show');renderHistory();});
+renderHistory();
+</script>
+</body>
+</html>
