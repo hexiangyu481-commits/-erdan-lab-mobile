@@ -3,60 +3,39 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
-<meta name="theme-color" content="#05090d">
+<meta name="theme-color" content="#050807">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>把手机放下 · 文明实验体</title>
-<style>
-:root{--bg:#05090d;--panel:#0b1217;--panel2:#10191f;--line:#23323a;--text:#edf4f6;--muted:#8c9aa3;--accent:#c7dfc9;--hot:#e7b07b}
-*{box-sizing:border-box}html,body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","PingFang SC","Microsoft YaHei",sans-serif}body{min-height:100vh;padding:max(14px,env(safe-area-inset-top)) 12px max(20px,env(safe-area-inset-bottom));overscroll-behavior:none}.app{max-width:720px;margin:auto}.top{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;margin:6px 2px 12px}.title{font-size:22px;font-weight:780;letter-spacing:.01em}.sub{font-size:12px;color:var(--muted);margin-top:4px}.tag{font-size:10px;color:var(--muted);border:1px solid var(--line);border-radius:99px;padding:6px 8px;white-space:nowrap}.stage{position:relative;aspect-ratio:9/12;min-height:430px;max-height:67vh;border:1px solid var(--line);border-radius:20px;overflow:hidden;background:#061018}canvas{display:block;width:100%;height:100%;touch-action:manipulation}.hud{position:absolute;top:11px;left:11px;right:11px;display:flex;justify-content:space-between;gap:8px;pointer-events:none}.hudbox{background:rgba(4,9,12,.73);border:1px solid rgba(255,255,255,.09);backdrop-filter:blur(10px);border-radius:13px;padding:8px 10px}.state{font-size:16px;font-weight:760}.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#70808a;margin-right:6px;vertical-align:1px}.running .dot{background:#d5ead6;box-shadow:0 0 14px rgba(213,234,214,.7)}.tiny{font-size:11px;color:#94a3ab;margin-top:3px}.right{text-align:right}.fade{position:absolute;left:0;right:0;bottom:0;height:115px;background:linear-gradient(transparent,rgba(4,8,11,.9));pointer-events:none}.tip{position:absolute;left:13px;right:13px;bottom:13px;font-size:11px;color:#b2c0c7;line-height:1.4;pointer-events:none}.controls{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:9px}button{min-height:48px;border:1px solid var(--line);border-radius:14px;background:var(--panel2);color:var(--text);font-size:14px;font-weight:720;padding:0 10px;-webkit-tap-highlight-color:transparent}button:active{transform:scale(.985)}button.primary{background:#14231b;border-color:#607d69}.full{grid-column:1/-1}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px;min-width:0}.v{font-size:18px;font-weight:780;overflow-wrap:anywhere}.k{font-size:10px;color:var(--muted);margin-top:3px}.panel{margin-top:8px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:11px}.pt{font-size:11px;font-weight:760;margin-bottom:6px}.selected,.log div,.sensor{font-size:11px;line-height:1.45;color:var(--muted)}.log{display:grid;gap:4px;max-height:115px;overflow:auto}.sensor{margin:9px 3px 0}.warn{color:var(--hot)}@media(max-width:430px){.stats{grid-template-columns:1fr 1fr}.stats .card:last-child{grid-column:1/-1}.stage{min-height:420px}}
-</style>
+<link rel="stylesheet" href="./style.css?v=2">
 </head>
 <body>
-<div class="app" id="app">
-  <div class="top"><div><div class="title">把手机放下 · 文明实验体</div><div class="sub">你可以观察，但不能追回错过的历史。</div></div><div class="tag">ERDAN LAB</div></div>
-  <div class="stage" id="stage">
-    <canvas id="world"></canvas>
-    <div class="hud">
-      <div class="hudbox"><div class="state"><span class="dot"></span><span id="state">时间冻结</span></div><div class="tiny" id="speed">时间倍率 ×0</div></div>
-      <div class="hudbox right"><div class="state">纪元 <span id="year">0</span></div><div class="tiny">不可回放</div></div>
+<div id="app">
+  <canvas id="world" aria-label="一个会随着时间生长和衰亡的微缩文明"></canvas>
+  <div class="topline">
+    <div class="epoch">纪元 <span id="year">0</span></div>
+    <div class="mode"><span class="dot"></span><span id="state">冻结</span></div>
+  </div>
+  <div id="hint" class="hint">轻点世界查看聚落 · 右下角打开控制层</div>
+  <button id="menu" class="menuBtn" aria-label="打开控制层">···</button>
+  <div id="sheet" class="sheet">
+    <div class="grab"></div>
+    <div class="stats">
+      <div class="stat"><div class="v" id="pop">0</div><div class="k">人口</div></div>
+      <div class="stat"><div class="v" id="count">0</div><div class="k">活跃聚落</div></div>
+      <div class="stat"><div class="v" id="era">荒原</div><div class="k">文明阶段</div></div>
     </div>
-    <div class="fade"></div><div class="tip" id="tip">点发光聚落可查看状态。真正放平检测需先点下方“启用姿态感应”。</div>
+    <div id="selected" class="selected">没有选中任何聚落。世界运行时，你只能观察。</div>
+    <div class="actions">
+      <button id="put" class="primary">▾ 放下手机</button>
+      <button id="pick">△ 拿起手机</button>
+      <button id="sensor" class="full">◎ 启用 iPhone 姿态感应</button>
+      <button id="reset" class="full">↻ 重建世界</button>
+    </div>
+    <div id="sensorText" class="sensorState">启用姿态感应后：屏幕朝上平放约 1.5 秒，文明开始流动；拿起后立即冻结。</div>
   </div>
-  <div class="controls">
-    <button class="primary" id="put">▾ 放下手机</button><button id="pick">△ 拿起手机</button>
-    <button class="full" id="sensor">◎ 启用 iPhone 姿态感应</button><button class="full" id="reset">↻ 重建世界</button>
-  </div>
-  <div class="stats"><div class="card"><div class="v" id="pop">0</div><div class="k">总人口</div></div><div class="card"><div class="v" id="count">0</div><div class="k">活跃聚落</div></div><div class="card"><div class="v" id="era">荒原</div><div class="k">文明阶段</div></div></div>
-  <div class="panel"><div class="pt">选中目标</div><div class="selected" id="selected">暂无。世界运行时，你只能观察。</div></div>
-  <div class="panel"><div class="pt">最近历史</div><div class="log" id="log"></div></div>
-  <div class="sensor" id="sensorText">按钮模式现在就能玩。启用姿态感应后：屏幕朝上水平放置约 1.5 秒，文明开始流动；拿起手机后立即冻结。</div>
+  <div id="toast" class="toast"></div>
 </div>
-<script>
-(()=>{
-const $=s=>document.querySelector(s),app=$('#app'),canvas=$('#world'),ctx=canvas.getContext('2d');
-const stateEl=$('#state'),speedEl=$('#speed'),yearEl=$('#year'),popEl=$('#pop'),countEl=$('#count'),eraEl=$('#era'),logEl=$('#log'),selEl=$('#selected'),tip=$('#tip'),sensorText=$('#sensorText');
-let W=360,H=520,dpr=1,running=false,last=performance.now(),year=0,nextEvent=18,id=1,cities=[],ruins=[],trees=[],sparks=[],river=[],sensorOn=false,flatSince=0,wakeLock=null,selected=null;
-const rnd=(a,b)=>b+Math.random()*(a-b),clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
-function resize(){const r=canvas.getBoundingClientRect();W=Math.max(300,r.width);H=Math.max(420,r.height);dpr=Math.min(window.devicePixelRatio||1,2);canvas.width=Math.round(W*dpr);canvas.height=Math.round(H*dpr);ctx.setTransform(dpr,0,0,dpr,0,0)}
-new ResizeObserver(resize).observe(canvas);
-function fmt(n){return n<1e4?Math.max(0,Math.round(n)).toLocaleString('zh-CN'):n<1e8?(n/1e4).toFixed(1)+' 万':(n/1e8).toFixed(2)+' 亿'}
-function era(){if(year<70)return'荒原';if(year<250)return'聚落纪';if(year<700)return'城邦纪';if(year<1300)return'高塔纪';if(year<2100)return'网络纪';return'余烬纪'}
-function log(t){const d=document.createElement('div');d.textContent=`纪元 ${Math.floor(year)}：${t}`;logEl.prepend(d);while(logEl.children.length>8)logEl.lastChild.remove()}
-function resetWorld(){running=false;year=0;nextEvent=18;id=1;cities=[];ruins=[];sparks=[];selected=null;logEl.innerHTML='';selEl.textContent='暂无。世界运行时，你只能观察。';trees=Array.from({length:92},()=>({x:Math.random(),y:rnd(.36,.94),r:rnd(.003,.012),a:rnd(.16,.46)}));river=Array.from({length:11},(_,i)=>({x:i/10,y:.48+Math.sin(i*.72)*.08+rnd(-.02,.02)}));log('世界处于静止状态。');ui()}
-function addCity(){if(cities.length>=11)return;let x,y,n=0;do{x=rnd(.10,.90);y=rnd(.43,.88);n++}while(n<35&&cities.some(c=>Math.hypot(c.x-x,c.y-y)<.13));const names=['灰湾','北栖','灯河','静塔','弧城','远岬','零丘','雾港','折光','西脊','暮环','东坠'];const c={id:id++,name:names[Math.floor(Math.random()*names.length)]+'-'+String(id).padStart(2,'0'),x,y,pop:rnd(550,2400),age:0,health:rnd(.75,1),phase:Math.random()*6.28};cities.push(c);log(c.name+' 建立。')}
-function kill(c,why='原因未知。'){ruins.push({x:c.x,y:c.y,name:c.name});sparks.push({x:c.x,y:c.y,t:0,big:true});cities=cities.filter(q=>q.id!==c.id);log(`${c.name} 消失。${why}`);if(selected===c.id){selected=null;selEl.textContent='刚才选中的聚落已经不存在了。'}}
-function ui(){const total=cities.reduce((s,c)=>s+c.pop,0);yearEl.textContent=Math.floor(year).toLocaleString('zh-CN');popEl.textContent=fmt(total);countEl.textContent=cities.length;eraEl.textContent=era();stateEl.textContent=running?'世界正在流逝':'时间冻结';speedEl.textContent=running?'现实 1 秒 ≈ 24 年':'时间倍率 ×0';app.classList.toggle('running',running)}
-async function keepAwake(){try{if('wakeLock'in navigator&&!wakeLock)wakeLock=await navigator.wakeLock.request('screen')}catch(e){}}
-function setRun(v,msg){if(v===running)return;running=v;ui();if(v){log(msg||'观察者离开，时间重新开始流动。');keepAwake()}else log(msg||'观察者拿起设备，世界被冻结。')}
-function sim(dt){if(!running)return;const dy=dt*24;year+=dy;if(cities.length===0&&year>10)addCity();cities.forEach(c=>{c.age+=dy;const cycle=1+Math.sin((year+c.id*43)/120)*.24;c.pop*=1+(.0068*cycle)*dy;c.health=clamp(c.health+rnd(-.006,.005),.15,1.2)});if(year>=nextEvent){nextEvent=year+rnd(16,55);const r=Math.random();if(r<.32&&cities.length<Math.min(11,1+Math.floor(year/125)))addCity();else if(cities.length){const c=cities[Math.floor(Math.random()*cities.length)],q=Math.random();if(q<.16&&c.age>65)kill(c);else if(q<.39){c.pop*=.38;c.health*=.78;sparks.push({x:c.x,y:c.y,t:0,big:false});log(c.name+' 人口骤降，记录缺失。')}else if(q<.61){c.pop*=1.42;log(c.name+' 出现异常繁荣。')}else if(q<.82)log(c.name+' 周边出现连续灯带。');else log('东部地层检测到短暂高温源。')}}sparks.forEach(s=>s.t+=dt);sparks=sparks.filter(s=>s.t<4);ui()}
-function terrain(t){const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#061018');g.addColorStop(1,'#071014');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);ctx.fillStyle='rgba(235,244,246,.20)';for(let i=0;i<34;i++){const x=((i*83)%997)/997*W,y=((i*47)%350)/1000*H;ctx.fillRect(x,y,1,1)}ctx.beginPath();ctx.moveTo(0,H*.43);for(let i=0;i<=14;i++)ctx.lineTo(W*i/14,H*(.43+.03*Math.sin(i*.9)+.012*Math.sin(i*2.1)));ctx.lineTo(W,H);ctx.lineTo(0,H);ctx.closePath();ctx.fillStyle='#102126';ctx.fill();ctx.beginPath();ctx.moveTo(0,H*.58);for(let i=0;i<=14;i++)ctx.lineTo(W*i/14,H*(.58+.024*Math.sin(i*.7+1.1)));ctx.lineTo(W,H);ctx.lineTo(0,H);ctx.closePath();ctx.fillStyle='#0d1a1e';ctx.fill();ctx.beginPath();river.forEach((p,i)=>{const x=p.x*W,y=p.y*H;i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.strokeStyle='rgba(93,137,151,.43)';ctx.lineWidth=12;ctx.lineCap='round';ctx.lineJoin='round';ctx.stroke();ctx.strokeStyle='rgba(180,209,215,.18)';ctx.lineWidth=2;ctx.stroke();trees.forEach(q=>{const x=q.x*W,y=q.y*H,r=q.r*W;ctx.fillStyle=`rgba(57,86,65,${q.a})`;ctx.beginPath();ctx.arc(x,y,r,0,6.29);ctx.arc(x+r*.7,y+r*.15,r*.75,0,6.29);ctx.fill()});ctx.strokeStyle='rgba(122,111,101,.42)';ctx.lineWidth=1.2;ruins.forEach(r=>{const x=r.x*W,y=r.y*H,s=5;ctx.beginPath();ctx.moveTo(x-s,y-s);ctx.lineTo(x+s,y+s);ctx.moveTo(x+s,y-s);ctx.lineTo(x-s,y+s);ctx.stroke()});sparks.forEach(s=>{const x=s.x*W,y=s.y*H,a=Math.max(0,1-s.t/4),rad=(s.big?55:35)+s.t*8,gr=ctx.createRadialGradient(x,y,0,x,y,rad);gr.addColorStop(0,`rgba(235,164,94,${.42*a})`);gr.addColorStop(1,'rgba(235,164,94,0)');ctx.fillStyle=gr;ctx.beginPath();ctx.arc(x,y,rad,0,6.29);ctx.fill()})}
-function drawCities(t){cities.forEach(c=>{const x=c.x*W,y=c.y*H,s=4+Math.min(11,Math.log10(Math.max(10,c.pop))*1.55),p=1+Math.sin(t*.002+c.phase)*.1,gr=ctx.createRadialGradient(x,y,0,x,y,s*5);gr.addColorStop(0,'rgba(216,236,218,.48)');gr.addColorStop(1,'rgba(216,236,218,0)');ctx.fillStyle=gr;ctx.beginPath();ctx.arc(x,y,s*5,0,6.29);ctx.fill();ctx.strokeStyle='rgba(125,171,156,.28)';ctx.lineWidth=1;ctx.beginPath();ctx.arc(x,y,s*2.2*p,0,6.29);ctx.stroke();ctx.fillStyle='#dbeadb';ctx.globalAlpha=.88;ctx.beginPath();ctx.arc(x,y,s*p,0,6.29);ctx.fill();ctx.globalAlpha=1;if(c.pop>25000){ctx.strokeStyle='rgba(190,218,200,.15)';for(let i=0;i<3;i++){ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+Math.cos(i*2.1+c.id)*s*5,y+Math.sin(i*2.1+c.id)*s*5);ctx.stroke()}}})}
-function loop(t){const dt=Math.min(.05,(t-last)/1000);last=t;sim(dt);terrain(t);drawCities(t);requestAnimationFrame(loop)}
-canvas.addEventListener('pointerup',e=>{const r=canvas.getBoundingClientRect(),x=(e.clientX-r.left)/r.width,y=(e.clientY-r.top)/r.height;let best=null,bd=.08;cities.forEach(c=>{const d=Math.hypot(c.x-x,c.y-y);if(d<bd){bd=d;best=c}});if(best){selected=best.id;selEl.textContent=`${best.name} · 建立约 ${Math.floor(best.age)} 年 · 人口 ${fmt(best.pop)} · 稳定度 ${Math.round(best.health*100)}%`;tip.textContent='已选中 '+best.name}});
-$('#put').addEventListener('click',()=>setRun(true));$('#pick').addEventListener('click',()=>setRun(false));$('#reset').addEventListener('click',()=>{setRun(false);resetWorld();tip.textContent='新世界已建立。'});
-$('#sensor').addEventListener('click',async()=>{try{if(typeof DeviceOrientationEvent==='undefined'){sensorText.innerHTML='<span class="warn">此浏览器没有开放姿态数据。</span> 按钮模式仍可正常玩。';return}if(typeof DeviceOrientationEvent.requestPermission==='function'){const p=await DeviceOrientationEvent.requestPermission();if(p!=='granted'){sensorText.innerHTML='<span class="warn">姿态权限未获允许。</span> 按钮模式仍可正常玩。';return}}if(sensorOn)return;sensorOn=true;$('#sensor').textContent='✓ 姿态感应已启用';sensorText.textContent='已启用：屏幕朝上水平放置。稳定约 1.5 秒后文明自动运行；拿起超过约 35° 后冻结。';keepAwake();window.addEventListener('deviceorientation',e=>{const b=Number(e.beta),g=Number(e.gamma);if(!Number.isFinite(b)||!Number.isFinite(g))return;const tilt=Math.hypot(b,g),now=performance.now();if(tilt<20){if(!flatSince)flatSince=now;if(now-flatSince>1500)setRun(true,'设备保持水平，时间开始流动。')}else{flatSince=0;if(tilt>35)setRun(false,'设备姿态改变，时间被冻结。')}},{passive:true})}catch(e){sensorText.innerHTML='<span class="warn">姿态感应启动失败。</span> 请使用 Safari，并确认运动与方向权限。'}});
-document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&running)keepAwake()});
-resize();resetWorld();requestAnimationFrame(loop);
-})();
-</script>
+<script src="./app.js?v=2"></script>
 </body>
 </html>
