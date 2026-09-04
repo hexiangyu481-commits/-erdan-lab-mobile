@@ -20,6 +20,9 @@
   let W=390,H=844,dpr=1;
   let active=false;
   let audioCtx=null;
+  let noiseBuffer=null;
+  let masterGain=null;
+  let compressor=null;
   let canVibrate=typeof navigator.vibrate==='function';
   let lastPulse=0;
   let lastX=0,lastY=0;
@@ -42,6 +45,16 @@
     {x1:.49,y1:.78,x2:.76,y2:.64,w:.028},
     {x1:.55,y1:.18,x2:.71,y2:.43,w:.022}
   ];
+
+  const materialSound={
+    '平原':{tone:96,noise:.020,brightness:260,attack:.002,decay:.045,pulse:62,shape:'sine'},
+    '月海':{tone:112,noise:.030,brightness:420,attack:.002,decay:.050,pulse:58,shape:'sine'},
+    '碎石地':{tone:148,noise:.095,brightness:1450,attack:.001,decay:.040,pulse:38,shape:'triangle'},
+    '陨石坑底':{tone:68,noise:.045,brightness:320,attack:.002,decay:.070,pulse:64,shape:'sine'},
+    '陨石坑缘':{tone:188,noise:.120,brightness:2100,attack:.001,decay:.032,pulse:28,shape:'square'},
+    '山脊':{tone:230,noise:.135,brightness:2600,attack:.001,decay:.028,pulse:24,shape:'square'},
+    '高地':{tone:164,noise:.075,brightness:1150,attack:.001,decay:.045,pulse:34,shape:'triangle'}
+  };
 
   function resize(){
     const rect=canvas.getBoundingClientRect();
@@ -80,7 +93,7 @@
 
     let h=noise(nx,ny)*.13;
     let rough=Math.abs(noise(nx*2.2,ny*2.2))*.34;
-    let label='月海';
+    let label=(rough<.15&&Math.abs(h)<.055)?'平原':'月海';
 
     for(const c of craters){
       const d=Math.hypot(nx-c.x,ny-c.y);
@@ -101,53 +114,109 @@
 
     const limb=smoothstep(.38,.5,dist);
     rough+=limb*.5;
-    if(rough>.62&&label==='月海')label='碎石地';
-    if(h>.32)label='高地';
+    if(rough>.62&&(label==='月海'||label==='平原'))label='碎石地';
+    if(h>.32&&label!=='山脊'&&label!=='陨石坑缘')label='高地';
     return {inside:true,height:h,rough:clamp(rough,0,1),edge:limb,label};
   }
 
   function intensityFrom(s,speed){
     if(!s.inside)return 0;
-    const base=.12+s.rough*.65+Math.abs(s.height)*.3+s.edge*.18;
-    return clamp(base*(.6+Math.min(speed/700,.65)),.08,1);
+    const motion=clamp(speed/520,0,1);
+    const base=.24+s.rough*.48+Math.abs(s.height)*.22+s.edge*.18;
+    return clamp(base*(.72+motion*.72),.22,1);
   }
 
   function unlockAudio(){
     if(!audioCtx){
       const AC=window.AudioContext||window.webkitAudioContext;
-      if(AC)audioCtx=new AC();
+      if(AC){
+        audioCtx=new AC();
+        masterGain=audioCtx.createGain();
+        masterGain.gain.value=.68;
+        compressor=audioCtx.createDynamicsCompressor();
+        compressor.threshold.value=-18;
+        compressor.knee.value=16;
+        compressor.ratio.value=7;
+        compressor.attack.value=.003;
+        compressor.release.value=.12;
+        masterGain.connect(compressor);compressor.connect(audioCtx.destination);
+        const len=Math.max(1,Math.floor(audioCtx.sampleRate*.14));
+        noiseBuffer=audioCtx.createBuffer(1,len,audioCtx.sampleRate);
+        const d=noiseBuffer.getChannelData(0);
+        for(let i=0;i<len;i++)d[i]=(Math.random()*2-1)*(.55+.45*Math.sin(i*.071));
+      }
     }
     if(audioCtx&&audioCtx.state==='suspended')audioCtx.resume().catch(()=>{});
   }
 
-  function acousticPulse(intensity,kind='texture'){
-    if(!audioCtx)return;
+  function acousticTexture(s,intensity,speed){
+    if(!audioCtx||!masterGain)return;
+    const cfg=materialSound[s.label]||materialSound['月海'];
     const now=audioCtx.currentTime;
-    const osc=audioCtx.createOscillator();
-    const gain=audioCtx.createGain();
+    const motion=clamp(speed/620,0,1);
+    const env=audioCtx.createGain();
     const filter=audioCtx.createBiquadFilter();
     filter.type='lowpass';
-    filter.frequency.value=kind==='edge'?180:260;
-    osc.type=kind==='edge'?'square':'sine';
-    osc.frequency.value=kind==='edge'?72:86+intensity*56;
-    const g=.008+intensity*.026;
-    gain.gain.setValueAtTime(g,now);
-    gain.gain.exponentialRampToValueAtTime(.0001,now+.012+intensity*.018);
-    osc.connect(filter);filter.connect(gain);gain.connect(audioCtx.destination);
-    osc.start(now);osc.stop(now+.04);
+    filter.frequency.setValueAtTime(cfg.brightness*(.78+motion*.55),now);
+    filter.Q.value=s.label==='陨石坑缘'||s.label==='山脊'?1.8:.7;
+
+    const tone=audioCtx.createOscillator();
+    tone.type=cfg.shape;
+    const terrainPitch=1+s.height*.24+s.rough*.12;
+    tone.frequency.setValueAtTime(clamp(cfg.tone*terrainPitch*(.94+motion*.16),48,420),now);
+
+    const toneGain=audioCtx.createGain();
+    const toneLevel=clamp(.035+intensity*.075,0,.115);
+    toneGain.gain.setValueAtTime(.0001,now);
+    toneGain.gain.linearRampToValueAtTime(toneLevel,now+cfg.attack);
+    toneGain.gain.exponentialRampToValueAtTime(.0001,now+cfg.decay*(.85+motion*.45));
+
+    tone.connect(toneGain);toneGain.connect(filter);
+
+    if(noiseBuffer&&cfg.noise>0){
+      const src=audioCtx.createBufferSource();
+      const ng=audioCtx.createGain();
+      const hp=audioCtx.createBiquadFilter();
+      hp.type='highpass';
+      hp.frequency.value=s.label==='陨石坑底'?80:180;
+      src.buffer=noiseBuffer;
+      src.playbackRate.value=.78+motion*.75+s.rough*.32;
+      const nLevel=clamp(cfg.noise*(.48+intensity*.82)*(1+motion*.35),.006,.18);
+      ng.gain.setValueAtTime(.0001,now);
+      ng.gain.linearRampToValueAtTime(nLevel,now+.002);
+      ng.gain.exponentialRampToValueAtTime(.0001,now+cfg.decay*(.7+motion*.3));
+      src.connect(hp);hp.connect(ng);ng.connect(filter);
+      src.start(now);src.stop(now+.12);
+    }
+
+    filter.connect(env);env.connect(masterGain);
+    env.gain.value=1;
+    tone.start(now);tone.stop(now+.12);
+
+    if((s.label==='山脊'||s.label==='陨石坑缘')&&Math.random()<.72){
+      const click=audioCtx.createOscillator();
+      const cg=audioCtx.createGain();
+      click.type='square';
+      click.frequency.value=s.label==='山脊'?320+Math.random()*140:245+Math.random()*110;
+      cg.gain.setValueAtTime(.045+intensity*.055,now);
+      cg.gain.exponentialRampToValueAtTime(.0001,now+.014);
+      click.connect(cg);cg.connect(masterGain);click.start(now);click.stop(now+.02);
+    }
   }
 
-  function pulse(intensity,kind='texture'){
+  function pulse(s,intensity,speed){
     const now=performance.now();
-    const interval=76-intensity*46;
+    const cfg=materialSound[s.label]||materialSound['月海'];
+    const motion=clamp(speed/620,0,1);
+    const interval=Math.max(18,cfg.pulse-motion*18-intensity*8);
     if(now-lastPulse<interval)return;
     lastPulse=now;
+
     if(canVibrate){
-      const ms=Math.round(6+intensity*18);
+      const ms=Math.round(8+intensity*22+(s.label==='山脊'||s.label==='陨石坑缘'?6:0));
       try{navigator.vibrate(ms)}catch(e){}
-    }else{
-      acousticPulse(intensity,kind);
     }
+    acousticTexture(s,intensity,speed);
   }
 
   function markVisited(nx,ny){
@@ -190,13 +259,13 @@
     const speed=Math.hypot(p.x-lastX,p.y-lastY)*18;
     lastX=p.x;lastY=p.y;
     if(!p.s.inside){
-      readout.textContent='真空 · 没有反馈';
+      readout.textContent='真空 · 绝对无声';
       return;
     }
     markVisited(p.nx,p.ny);
     const intensity=intensityFrom(p.s,speed);
-    pulse(intensity,p.s.edge>.72?'edge':'texture');
-    const words=intensity>.78?'粗糙':intensity>.5?'明显':intensity>.28?'细微':'平滑';
+    pulse(p.s,intensity,speed);
+    const words=intensity>.78?'强烈':intensity>.55?'明显':intensity>.34?'细密':'平滑';
     readout.textContent=`${p.s.label} · ${words}`;
   }
 
@@ -205,7 +274,15 @@
     unlockAudio();
     try{canvas.setPointerCapture(e.pointerId)}catch(err){}
     lastX=e.clientX;lastY=e.clientY;
-    onMove(e);
+    const p=pointToMoon(e.clientX,e.clientY);
+    if(p.s.inside){
+      markVisited(p.nx,p.ny);
+      const intensity=intensityFrom(p.s,80);
+      pulse(p.s,intensity,80);
+      readout.textContent=`${p.s.label} · 接触`;
+    }else{
+      readout.textContent='真空 · 绝对无声';
+    }
   }
 
   function start(){
@@ -213,11 +290,11 @@
     unlockAudio();
     centerMessage.classList.add('hidden');
     if(canVibrate){
-      modeText.textContent='触觉反馈已启用。';
-      toast('触觉反馈已启用');
+      modeText.textContent='触觉 + 声学反馈已启用。';
+      toast('触觉 + 声学反馈已启用');
     }else{
-      modeText.textContent='当前设备网页无法直接调用 Taptic Engine，已启用声学触觉模拟。';
-      toast('iPhone：声学触觉模拟');
+      modeText.textContent='iPhone 网页无法直接调用 Taptic Engine，已启用增强声学触觉。';
+      toast('增强声学触觉已启用');
     }
     readout.textContent='用一根手指缓慢移动';
   }
