@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#000000">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>摸月球 · ERDAN LAB</title>
+<link rel="stylesheet" href="./style.css?v=1">
+</head>
+<body>
+<main id="app" class="app">
+  <canvas id="surface" aria-label="一颗不可见的月球。用一根手指缓慢摸索它的地形。"></canvas>
+
+  <div class="topbar">
+    <div class="brand">ERDAN LAB / TOUCH THE MOON</div>
+    <div id="progress" class="progress">探索 0%</div>
+  </div>
+
+  <div id="centerMessage" class="centerMessage">
+    <div class="eyebrow">触觉实验 01</div>
+    <div class="title">手指下面有一颗月球。</div>
+    <div class="copy">不要看。慢慢摸。</div>
+    <button id="startBtn" class="startBtn" type="button">开始触摸</button>
+    <div id="modeText" class="modeText">首次点击用于开启触觉 / 声学反馈。</div>
+  </div>
+
+  <div id="touchReadout" class="touchReadout" aria-live="polite">等待接触</div>
+
+  <div class="bottomDock">
+    <button id="revealBtn" class="revealBtn" type="button" disabled>探索到 35% 后显示月球</button>
+    <button id="resetBtn" class="ghostBtn" type="button">重置</button>
+  </div>
+
+  <div id="revealPanel" class="revealPanel" aria-hidden="true">
+    <canvas id="revealCanvas" aria-label="刚才摸索过的月球地形"></canvas>
+    <div class="revealText">
+      <div class="eyebrow">SURFACE RECOVERED</div>
+      <div class="revealTitle">刚才你摸的是一颗月球。</div>
+      <div id="revealStats" class="revealStats"></div>
+      <button id="closeReveal" class="startBtn" type="button">继续摸</button>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+</main>
+<script src="./app.js?v=1"></script>
+</body>
+</html>
