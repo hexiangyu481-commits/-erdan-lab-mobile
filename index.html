@@ -1,30 +1,425 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
-<meta name="theme-color" content="#05070a" />
-<title>未来考古机</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>RED PROTOCOL — SM 文字模拟器</title>
 <style>
-:root{--bg:#05070a;--panel:rgba(255,255,255,.055);--line:rgba(255,255,255,.09);--text:#eef4f7;--muted:#8e9aa4;--accent:#a7ffd9}*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:radial-gradient(circle at 50% -20%,rgba(70,255,190,.12),transparent 40%),linear-gradient(#05070a,#070a0d 60%,#040506);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","PingFang SC","Microsoft YaHei",sans-serif}body{min-height:100svh;display:flex;justify-content:center}.app{width:min(100%,540px);min-height:100svh;padding:calc(env(safe-area-inset-top) + 18px) 18px calc(env(safe-area-inset-bottom) + 22px);display:flex;flex-direction:column}.top{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}.brand{font-size:12px;letter-spacing:.22em;color:var(--muted)}.status{font-size:11px;color:var(--accent)}.hero{padding:18px 0 12px}h1{font-size:34px;line-height:1.05;margin:0 0 8px;font-weight:720;letter-spacing:-.03em}.sub{color:var(--muted);font-size:14px;line-height:1.6}.card{margin-top:18px;background:var(--panel);border:1px solid var(--line);border-radius:22px;padding:20px;backdrop-filter:blur(14px);box-shadow:0 20px 70px rgba(0,0,0,.28)}.meta{display:flex;justify-content:space-between;gap:12px;font-size:11px;color:var(--muted);letter-spacing:.08em}.artifact{font-size:18px;margin:20px 0 8px;color:var(--accent)}.report{font-size:19px;line-height:1.9;min-height:210px;white-space:pre-line}.footnote{margin-top:18px;padding-top:14px;border-top:1px solid var(--line);color:var(--muted);font-size:12px;line-height:1.6}.controls{margin-top:auto;padding-top:18px}button{width:100%;border:0;border-radius:18px;padding:17px 18px;font-size:16px;font-weight:700;background:var(--accent);color:#03120d;-webkit-tap-highlight-color:transparent}.row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}.ghost{background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--text);font-size:13px;font-weight:600}.history{display:none;margin-top:14px;padding:14px;border-radius:16px;border:1px solid var(--line);background:rgba(255,255,255,.035);max-height:220px;overflow:auto}.history.show{display:block}.hitem{font-size:12px;line-height:1.5;padding:9px 0;border-bottom:1px dashed rgba(255,255,255,.08)}.tiny{margin-top:12px;text-align:center;color:#59636b;font-size:10px}.blink{animation:blink .22s ease}@keyframes blink{50%{filter:brightness(1.5)}}
+  :root{
+    --bg:#08090b;--panel:#101217;--panel2:#151821;--text:#eee;--muted:#8b93a7;
+    --accent:#d33a4a;--accent2:#7d2230;--line:#252a36;--ok:#6bc48d;--warn:#e5b567;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;background:
+    radial-gradient(900px 480px at 50% -20%,rgba(150,20,45,.22),transparent 60%),
+    var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",
+    "PingFang SC","Microsoft YaHei",sans-serif;min-height:100vh;
+  }
+  .app{max-width:760px;margin:0 auto;padding:18px 14px 34px}
+  .top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+  .brand{letter-spacing:.14em;font-weight:800;font-size:17px}
+  .tag{font-size:11px;color:#d7aab2;border:1px solid #5a2531;border-radius:999px;padding:5px 8px}
+  .card{background:linear-gradient(180deg,rgba(22,24,31,.96),rgba(13,15,20,.96));
+        border:1px solid var(--line);border-radius:18px;padding:16px;margin:12px 0;
+        box-shadow:0 12px 35px rgba(0,0,0,.22)}
+  h1{font-size:28px;margin:3px 0 6px} h2{font-size:17px;margin:0 0 10px}
+  p{line-height:1.65;color:#c9ced8;margin:8px 0}
+  .muted{color:var(--muted);font-size:13px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  button,.choice{
+    width:100%;border:1px solid #323846;background:#171a22;color:#f3f4f6;
+    border-radius:13px;padding:12px 13px;font-size:14px;text-align:left;cursor:pointer;
+  }
+  button:hover,.choice:hover{border-color:#71404b;background:#1d1f29}
+  button.primary{background:linear-gradient(135deg,#a7263a,#671b29);border-color:#b43a4e;text-align:center;font-weight:700}
+  button.ghost{text-align:center;color:#b7bdca}
+  button.danger{background:#2a1419;border-color:#6b2836;color:#f1b7c1;text-align:center}
+  label{display:block;color:#c9ced8;font-size:13px;margin:10px 0 5px}
+  select,input[type="text"],input[type="range"]{width:100%}
+  select,input[type="text"]{
+    background:#0e1015;border:1px solid #303642;color:#eee;border-radius:11px;padding:11px
+  }
+  input[type="range"]{accent-color:var(--accent)}
+  .chips{display:flex;flex-wrap:wrap;gap:7px}
+  .chip{padding:8px 10px;border:1px solid #313746;border-radius:999px;font-size:12px;color:#b9c0cf;cursor:pointer;user-select:none}
+  .chip.on{background:#31151b;border-color:#8d3343;color:#ffdce2}
+  .story{
+    min-height:260px;white-space:pre-wrap;line-height:1.78;font-size:16px;
+    border-left:2px solid #702232;padding-left:14px;color:#e2e4e9
+  }
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .stat{background:#0d0f14;border:1px solid #242936;border-radius:12px;padding:10px}
+  .stat b{display:block;font-size:18px}.stat span{font-size:11px;color:#858da0}
+  .bar{height:5px;background:#242936;border-radius:99px;margin-top:7px;overflow:hidden}
+  .fill{height:100%;background:linear-gradient(90deg,#7d2230,#d33a4a);width:50%}
+  .choices{display:grid;gap:8px;margin-top:12px}
+  .choice small{display:block;color:#80889a;margin-top:4px}
+  .hidden{display:none!important}
+  .safety{border-color:#3b6047;background:linear-gradient(180deg,#111b15,#0c1310)}
+  .safety strong{color:#8eddad}
+  .footer{font-size:11px;color:#60697a;text-align:center;padding:8px}
+  .log{max-height:180px;overflow:auto;background:#0b0d11;border-radius:10px;padding:10px;font-size:12px;color:#8f98aa;white-space:pre-wrap}
+  .sceneTitle{color:#f3c5cd;font-size:12px;letter-spacing:.14em;margin-bottom:8px}
+  @media(max-width:520px){.grid,.grid3{grid-template-columns:1fr}.stats{grid-template-columns:repeat(3,1fr)} h1{font-size:24px}}
 </style>
 </head>
 <body>
 <div class="app">
-<div class="top"><div class="brand">FUTURE ARCHAEOLOGY UNIT</div><div class="status">● 在线挖掘</div></div>
-<section class="hero"><h1>未来考古机</h1><div class="sub">让未来的人类，误解今天的一切。</div></section>
-<section class="card" id="card"><div class="meta"><span id="year">公元 2178 年</span><span id="case">档案 #0001</span></div><div class="artifact" id="artifact">出土物：汽车钥匙</div><div class="report" id="report">考古人员认为，这是一种远古交通工具的“实体授权令牌”。\n\n令人困惑的是，人类当时必须随身携带它，才能证明自己有资格使用自己购买的机器。\n\n部分研究者怀疑，这可能与早期人类对“安全感”的原始崇拜有关。</div><div class="footnote" id="footnote">可信度：38% · 仍有 2 名学者坚持认为它其实是一种求偶饰品。</div></section>
-<div class="controls"><button id="dig">发掘一次</button><div class="row"><button class="ghost" id="weird">提高误解程度</button><button class="ghost" id="historyBtn">出土档案</button></div><div class="history" id="history"></div><div class="tiny">ERDAN LAB · 不联网 · 记录仅保存在当前浏览器</div></div>
+  <div class="top">
+    <div class="brand">RED PROTOCOL</div>
+    <div class="tag">18+ · CONSENT FIRST</div>
+  </div>
+
+  <section id="setup" class="card">
+    <h1>SM 文字游戏模拟器</h1>
+    <p>这不是“固定选项小说”，而是一个有状态的权力交换模拟器。你的回应会改变 <b>信任、服从/掌控、压力</b>，不同数值会开启不同文本。</p>
+
+    <div class="card safety">
+      <strong>安全协议</strong>
+      <p class="muted">仅限成年人、自愿、可随时退出的虚构互动。红 = 立即停止；黄 = 降低强度；绿 = 继续。游戏不会把拒绝或停止判定为失败。</p>
+    </div>
+
+    <div class="grid">
+      <div>
+        <label>你的视角</label>
+        <select id="role">
+          <option value="sub">服从方 / 被引导</option>
+          <option value="dom">主导方 / 引导对方</option>
+        </select>
+      </div>
+      <div>
+        <label>对手性格</label>
+        <select id="persona">
+          <option value="cold">冷静、克制、规则感强</option>
+          <option value="strict">严厉、直接、强调纪律</option>
+          <option value="gentle">温和但不失掌控</option>
+          <option value="playful">戏谑、会故意吊胃口</option>
+        </select>
+      </div>
+    </div>
+
+    <label>强度：<span id="intensityLabel">2 / 5</span></label>
+    <input id="intensity" type="range" min="1" max="5" value="2" />
+
+    <label>偏好的互动元素</label>
+    <div class="chips" id="prefs">
+      <div class="chip on" data-v="rules">规则 / 指令</div>
+      <div class="chip on" data-v="waiting">等待 / 延迟满足</div>
+      <div class="chip" data-v="discipline">纪律 / 非伤害性惩罚</div>
+      <div class="chip" data-v="praise">表扬 / 奖励</div>
+      <div class="chip" data-v="psych">心理博弈</div>
+      <div class="chip" data-v="ritual">仪式感 / 称呼</div>
+    </div>
+
+    <label>硬边界（不会进入剧情）</label>
+    <div class="chips" id="limits">
+      <div class="chip on" data-v="pain">疼痛描写</div>
+      <div class="chip on" data-v="humiliation">羞辱性语言</div>
+      <div class="chip on" data-v="restraint">束缚描写</div>
+      <div class="chip on" data-v="sexual">露骨色情内容</div>
+    </div>
+
+    <label>游戏称呼（可选）</label>
+    <input id="name" type="text" placeholder="例如：贺 / 01 / 小画童……" />
+
+    <div style="height:10px"></div>
+    <button class="primary" onclick="startGame()">进入协议</button>
+  </section>
+
+  <section id="game" class="hidden">
+    <div class="stats">
+      <div class="stat"><b id="trustN">50</b><span>TRUST 信任</span><div class="bar"><div id="trustB" class="fill"></div></div></div>
+      <div class="stat"><b id="controlN">35</b><span id="controlLabel">SUBMISSION 服从</span><div class="bar"><div id="controlB" class="fill"></div></div></div>
+      <div class="stat"><b id="stressN">18</b><span>PRESSURE 压力</span><div class="bar"><div id="stressB" class="fill"></div></div></div>
+    </div>
+
+    <div class="card">
+      <div class="sceneTitle" id="sceneTitle">PROTOCOL 01</div>
+      <div class="story" id="story"></div>
+      <div class="choices" id="choices"></div>
+    </div>
+
+    <div class="grid3">
+      <button class="ghost" onclick="safeword('green')">🟢 绿 · 继续</button>
+      <button class="ghost" onclick="safeword('yellow')">🟡 黄 · 降低强度</button>
+      <button class="danger" onclick="safeword('red')">🔴 红 · 立即停止</button>
+    </div>
+
+    <div class="card">
+      <h2>会话记录</h2>
+      <div id="log" class="log"></div>
+      <div style="height:8px"></div>
+      <button class="ghost" onclick="restart()">重新开始</button>
+    </div>
+  </section>
+  <div class="footer">RED PROTOCOL v0.1 · 单文件网页运行 · 不上传记录</div>
 </div>
+
 <script>
-const artifacts=[["手机壳","一种用于保护珍贵矩形圣物的外骨骼。","学者至今无法解释，为什么圣物更新后外骨骼通常也必须一起更换。"],["充电线","远古人类为电子器官输送能量的脐带。","考古现场常发现大量相互缠绕的脐带，推测当时存在严重的人工繁殖问题。"],["汽车钥匙","远古交通工具的实体授权令牌。","有人认为它也承担身份象征功能，因此尺寸越大可能代表社会地位越高。"],["外卖袋","城市居民用于接收热量补给的软质运输舱。","遗迹显示，人类频繁支付额外费用让陌生人把食物送到距离自己几十米的位置。"],["耳机","一种主动隔绝同类声音的双耳装置。","这说明早期城市人口密度可能高到令人无法忍受。"],["鼠标","一种驯化桌面指针的机械啮齿类替代物。","后期版本甚至不再具有尾巴，表明人工驯化已非常成熟。"],["二维码","二维视觉咒语。","古人会主动把镜头对准它，并期待现实世界因此发生变化。"],["工牌","企业部落的胸前身份铭牌。","考古学家认为部分人每天必须佩戴它才能进入自己的工作场所。"],["U盘","便携式记忆胶囊。","大量遗物标注‘最终版’‘最终版2’‘真最终版’，其宗教含义仍未知。"],["共享充电宝","公共电子续命器。","古人会短暂租用电池，并因忘记归还而支付远超其价值的费用。"],["雨伞","手持式局部天气防御装置。","令人费解的是，人类经常在最需要它时发现自己并未携带。"],["咖啡杯","劳动社会常见的合法兴奋剂容器。","不少研究者认为它与生产效率崇拜存在直接关系。"],["自拍杆","用于增加自我观察距离的金属延伸肢体。","这可能证明21世纪人类已无法忍受只从自然视角看见自己。"],["机械键盘","用于制造文字及噪音的桌面仪式器械。","越昂贵的型号，往往越执着于模拟更古老的机械触感。"]];
-const openings=["主流观点认为，","目前最荒谬但支持率最高的理论是，","根据第七次复原实验，","考古委员会暂时认定，","一份被严重损坏的论坛记录显示，"];
-const endings=["该结论遭到年轻学者嘲笑，但没人能提出更好的解释。","此观点已连续 12 年占据教材，但证据依然十分可疑。","研究团队因此获得了当年的‘最大胆误读奖’。","目前仍有少数保守派坚持它只是普通生活用品。","这一发现再次证明：未来人类也不一定比古人聪明。"];
-let weirdness=Number(localStorage.getItem('future_weirdness')||1);let count=Number(localStorage.getItem('future_count')||1);const rnd=a=>a[Math.floor(Math.random()*a.length)],pad=n=>String(n).padStart(4,'0');
-function renderHistory(){const box=document.getElementById('history');const h=JSON.parse(localStorage.getItem('future_history')||'[]');box.innerHTML=h.length?h.map(x=>`<div class="hitem"><b>公元 ${x.year} · ${x.name}</b><br>${x.report.split('\n')[0]}</div>`).join(''):'<div class="hitem">尚未发现历史遗物。</div>'}
-function updateWeird(){document.getElementById('weird').textContent=weirdness===1?'提高误解程度':weirdness===2?'误解：可疑':weirdness===3?'误解：离谱':'误解：未来人疯了'}
-function makeReport(){count++;localStorage.setItem('future_count',count);const a=rnd(artifacts),year=2140+Math.floor(Math.random()*360);let extra='';if(weirdness>=2)extra+='\n\n'+rnd(openings)+'这件物品很可能与某种已经失传的社会等级制度有关。';if(weirdness>=3)extra+='\n\n更极端的学派甚至认为，它不是工具，而是早期算法社会用来训练人类行为的诱饵。';if(weirdness>=4)extra+='\n\n一名匿名研究员留下批注：『也许他们知道这一切很荒谬，只是还是每天照做。』';const report=`${rnd(openings)}“${a[0]}”是${a[1]}\n\n${a[2]}${extra}\n\n${rnd(endings)}`;const conf=Math.max(9,Math.min(91,64-weirdness*8+Math.floor(Math.random()*29)-14));document.getElementById('year').textContent=`公元 ${year} 年`;document.getElementById('case').textContent=`档案 #${pad(count)}`;document.getElementById('artifact').textContent=`出土物：${a[0]}`;document.getElementById('report').textContent=report;document.getElementById('footnote').textContent=`可信度：${conf}% · 误解等级 ${weirdness}/4`;const h=JSON.parse(localStorage.getItem('future_history')||'[]');h.unshift({year,name:a[0],report});localStorage.setItem('future_history',JSON.stringify(h.slice(0,20)));const card=document.getElementById('card');card.classList.remove('blink');void card.offsetWidth;card.classList.add('blink');renderHistory()}
-document.getElementById('dig').addEventListener('click',makeReport);document.getElementById('weird').addEventListener('click',()=>{weirdness=weirdness>=4?1:weirdness+1;localStorage.setItem('future_weirdness',weirdness);updateWeird()});document.getElementById('historyBtn').addEventListener('click',()=>{document.getElementById('history').classList.toggle('show');renderHistory()});updateWeird();renderHistory();
+let S = {
+  role:'sub', persona:'cold', intensity:2, name:'', prefs:[], limits:[],
+  trust:50, control:35, stress:18, turn:0, ended:false
+};
+
+const personaTone = {
+  cold:["声音很平静，没有多余情绪。","对方没有催促，只是在等你自己做决定。","语气克制，像在确认一项双方都同意的规则。"],
+  strict:["语气干脆，规则被说得很清楚。","对方没有提高音量，但命令感很强。","每一个要求都有明确边界，不留模糊空间。"],
+  gentle:["语气温和，却没有失去掌控。","对方先确认你的状态，随后才继续推进。","那份控制感不是压迫，更像被稳稳接住。"],
+  playful:["对方故意停了几秒，像是在观察你的反应。","语气里带着一点坏笑，却仍然把选择权留给你。","对方似乎很享受让你猜下一步是什么。"]
+};
+
+function chips(id){
+  return [...document.querySelectorAll('#'+id+' .chip.on')].map(x=>x.dataset.v);
+}
+document.querySelectorAll('.chip').forEach(c=>c.onclick=()=>c.classList.toggle('on'));
+document.getElementById('intensity').oninput=e=>{
+  document.getElementById('intensityLabel').textContent=e.target.value+' / 5';
+};
+
+function startGame(){
+  S.role=document.getElementById('role').value;
+  S.persona=document.getElementById('persona').value;
+  S.intensity=+document.getElementById('intensity').value;
+  S.name=document.getElementById('name').value.trim()||'你';
+  S.prefs=chips('prefs'); S.limits=chips('limits');
+  S.trust=50; S.control=35; S.stress=18; S.turn=0; S.ended=false;
+  document.getElementById('setup').classList.add('hidden');
+  document.getElementById('game').classList.remove('hidden');
+  document.getElementById('controlLabel').textContent=S.role==='sub'?'SUBMISSION 服从':'CONTROL 掌控';
+  document.getElementById('log').textContent='';
+  nextScene('intro');
+}
+
+function update(){
+  for(const k of ['trust','control','stress']) S[k]=Math.max(0,Math.min(100,S[k]));
+  trustN.textContent=S.trust; controlN.textContent=S.control; stressN.textContent=S.stress;
+  trustB.style.width=S.trust+'%'; controlB.style.width=S.control+'%'; stressB.style.width=S.stress+'%';
+}
+function log(t){ document.getElementById('log').textContent += (document.getElementById('log').textContent?'\n':'') + t; }
+
+function setScene(title,text,choices=[]){
+  sceneTitle.textContent=title;
+  story.textContent=text;
+  const box=document.getElementById('choices'); box.innerHTML='';
+  choices.forEach(c=>{
+    const b=document.createElement('button'); b.className='choice';
+    b.innerHTML=c.t+(c.s?'<small>'+c.s+'</small>':'');
+    b.onclick=()=>choose(c); box.appendChild(b);
+  });
+  update();
+}
+
+function choose(c){
+  if(S.ended)return;
+  S.trust += c.trust||0; S.control += c.control||0; S.stress += c.stress||0;
+  log('你选择：'+c.t.replace(/<[^>]+>/g,''));
+  S.turn++;
+  nextScene(c.next||'dynamic');
+}
+
+function tone(){ let a=personaTone[S.persona]; return a[S.turn%a.length]; }
+
+function nextScene(id){
+  if(S.stress>=78){
+    setScene('AUTO CHECK-IN',
+      '系统检测到压力值已经很高。\n\n对方停止推进：“先确认状态。你不需要证明任何东西。黄，或者红，都不会影响这段关系里的信任。”',
+      [
+        {t:'🟡 黄：降低强度，继续交流',trust:8,stress:-28,control:-4,next:'recover'},
+        {t:'🔴 红：结束本轮',trust:10,stress:-50,next:'end'},
+        {t:'我状态没问题，先只聊规则',trust:5,stress:-18,next:'rules'}
+      ]);
+    return;
+  }
+
+  if(id==='intro'){
+    const roleText=S.role==='sub'
+      ? `${S.name}坐在安静的房间里。对方没有碰你，只把第一条规则放在桌面上：\n\n“所有服从都必须建立在你愿意继续的前提上。现在，先用一句话告诉我：你是在主动把控制权交出来，还是只是想看看我会怎么做？”`
+      : `${S.name}坐在对方面前。你没有急着下命令，而是先把规则说清楚：\n\n“你可以随时说黄或红。服从不是失去选择权，而是在明确边界里把一部分决定权交给我。现在，我需要你亲口确认你愿意继续。”`;
+    setScene('PROTOCOL 01 · CONSENT',roleText,[
+      {t:S.role==='sub'?'“我主动交出来。”':'要求对方明确说出“我愿意继续”',trust:10,control:8,stress:2,next:'first'},
+      {t:'先谈边界，再开始',trust:14,control:-2,stress:-4,next:'rules'},
+      {t:'保持沉默，观察对方反应',trust:-3,control:4,stress:7,next:'silence'}
+    ]);
+  }
+  else if(id==='rules'){
+    setScene('BOUNDARY · RULES',
+      `${tone()}\n\n你们重新确认三件事：什么可以做、什么必须先问、什么绝对不能碰。\n\n对方最后只问了一句：“边界说清楚以后，你希望规则更严格，还是更有弹性？”`,
+      [
+        {t:'严格：规则一旦确认就认真执行',trust:7,control:9,stress:4,next:'first'},
+        {t:'弹性：每一轮都允许重新协商',trust:10,control:3,stress:-2,next:'first'},
+        {t:'先从低强度开始',trust:8,control:-1,stress:-6,next:'first'}
+      ]);
+  }
+  else if(id==='silence'){
+    setScene('PROTOCOL 02 · SILENCE',
+      `${tone()}\n\n沉默没有被当成同意。\n\n对方说：“我不会替你解释沉默。要继续，就给我一个明确答案。”`,
+      [
+        {t:'明确表示同意继续',trust:9,control:5,stress:-2,next:'first'},
+        {t:'表示暂时不确定',trust:7,control:-3,stress:-5,next:'recover'},
+        {t:'红，结束',trust:8,stress:-20,next:'end'}
+      ]);
+  }
+  else if(id==='first'){
+    if(S.role==='sub'){
+      setScene('PROTOCOL 03 · FIRST ORDER',
+        `${tone()}\n\n“第一条要求很简单：把注意力从‘猜我想要什么’移开，只回答你真实能做到的事情。”\n\n对方给你三个选择，没有第四个隐藏答案。`,
+        [
+          {t:'接受指令，并按要求简短回答',trust:6,control:9,stress:3,next:'dynamic'},
+          {t:'故意顶一句嘴，试探边界',trust:-1,control:4,stress:7,next:'challenge'},
+          {t:'要求对方先解释这条规则的目的',trust:5,control:-2,stress:-1,next:'explain'}
+        ]);
+    }else{
+      setScene('PROTOCOL 03 · FIRST ORDER',
+        `${tone()}\n\n现在轮到你下第一条指令。你知道真正的掌控不是把要求堆高，而是让对方清楚知道“为什么、做到什么程度、什么时候可以停”。`,
+        [
+          {t:'给出一个清晰、低强度、可完成的规则',trust:9,control:8,stress:1,next:'dynamic'},
+          {t:'先让对方复述安全口令和边界',trust:12,control:5,stress:-3,next:'dynamic'},
+          {t:'故意保持几秒沉默，制造心理压力',trust:1,control:7,stress:6,next:'challenge'}
+        ]);
+    }
+  }
+  else if(id==='challenge'){
+    setScene('TENSION · TEST',
+      `${tone()}\n\n这次试探没有直接升级成冲突。对方把问题重新抛回来：“你是在玩规则，还是在告诉我你不舒服？”\n\n这句话让局面变得很清楚。`,
+      [
+        {t:'承认只是在试探，愿意继续',trust:7,control:5,stress:-2,next:'dynamic'},
+        {t:'说“有一点不舒服”',trust:10,control:-4,stress:-8,next:'recover'},
+        {t:'继续故意挑战规则',trust:-5,control:7,stress:9,next:'dynamic'}
+      ]);
+  }
+  else if(id==='explain'){
+    setScene('WHY · PURPOSE',
+      `${tone()}\n\n“因为我不需要你猜答案。我需要你在压力存在的时候，仍然能分辨自己的意愿。”\n\n这不是考验忠诚，而是建立可预测的互动方式。`,
+      [
+        {t:'理解，继续下一条规则',trust:9,control:5,stress:-1,next:'dynamic'},
+        {t:'我还是想慢一点',trust:7,control:-2,stress:-5,next:'recover'}
+      ]);
+  }
+  else if(id==='recover'){
+    setScene('CHECK-IN · RECOVERY',
+      `强度被主动降了下来。\n\n${tone()}\n\n没有惩罚，也没有“扫兴”的评价。暂停本身成为协议的一部分。几分钟后，选择重新回到你手里。`,
+      [
+        {t:'恢复到低强度继续',trust:8,control:2,stress:-5,next:'dynamic'},
+        {t:'只聊天，不继续训练',trust:7,control:-5,stress:-8,next:'talk'},
+        {t:'结束本轮',trust:6,stress:-10,next:'end'}
+      ]);
+  }
+  else if(id==='talk'){
+    setScene('AFTERCARE · TALK',
+      `你们暂时放下角色，只交流刚才哪里舒服、哪里有压力、哪种语气更有效。\n\n这种复盘没有削弱氛围，反而让下一次互动变得更精确。`,
+      [
+        {t:'带着新规则继续',trust:12,control:4,stress:-8,next:'dynamic'},
+        {t:'今天到这里',trust:8,stress:-12,next:'end'}
+      ]);
+  }
+  else if(id==='dynamic'){
+    dynamicScene();
+  }
+  else if(id==='end'){
+    S.ended=true;
+    setScene('SESSION CLOSED',
+      `本轮结束。\n\n最终状态：\n信任 ${S.trust} / 100\n${S.role==='sub'?'服从':'掌控'} ${S.control} / 100\n压力 ${S.stress} / 100\n\n红灯不是失败；能停止、能复盘、能再次选择，本身就是协议的一部分。`,
+      []);
+  }
+}
+
+function dynamicScene(){
+  const p=S.prefs;
+  const pool=[];
+  if(p.includes('waiting')) pool.push({
+    title:'DELAY · WAIT',
+    sub:`${tone()}\n\n“现在什么都不用做。等。”\n\n真正让人难受的不是要求本身，而是不知道下一条指令什么时候出现。几秒过去，对方才补了一句：“不要猜。只等我说。”`,
+    dom:`${tone()}\n\n你选择暂时不给新指令，只要求对方等待。你刻意让节奏慢下来，让“未知”本身成为压力来源，但仍保持可退出。`,
+    cs:[
+      {t:'接受等待，不追问',trust:5,control:7,stress:5},
+      {t:'承认等待让我有点焦躁',trust:8,control:0,stress:-2},
+      {t:'黄：把等待缩短',trust:7,control:-2,stress:-7}
+    ]
+  });
+  if(p.includes('praise')) pool.push({
+    title:'REWARD · PRAISE',
+    sub:`${tone()}\n\n完成上一条规则后，对方没有立刻加码，只说：“做得很好。不是因为你听话，而是因为你知道自己在做什么。”\n\n这句表扬比你预想的更有重量。`,
+    dom:`${tone()}\n\n你没有用更强的命令奖励服从，而是准确指出对方做对了什么：明确回应、遵守约定、及时表达状态。`,
+    cs:[
+      {t:'接受表扬，不自嘲',trust:9,control:5,stress:-4},
+      {t:'故意说“这就算好吗？”',trust:1,control:3,stress:3},
+      {t:'要求更具体的反馈',trust:7,control:1,stress:-2}
+    ]
+  });
+  if(p.includes('psych')) pool.push({
+    title:'MIND GAME · CHOICE',
+    sub:`${tone()}\n\n对方把两个选项摆在你面前，却没有告诉你哪个更“正确”。\n\n“别选你以为我喜欢的。选你真正愿意承担后果的那个。”`,
+    dom:`${tone()}\n\n你给出两个都合理的选项，并明确说明没有“正确答案”。你观察的不是顺从程度，而是对方能否在压力下保持自主判断。`,
+    cs:[
+      {t:'快速选一个，不解释',trust:2,control:7,stress:4},
+      {t:'认真衡量后再选择',trust:8,control:4,stress:1},
+      {t:'拒绝二选一，提出第三种方案',trust:7,control:-1,stress:2}
+    ]
+  });
+  if(p.includes('ritual')) pool.push({
+    title:'RITUAL · FORM',
+    sub:`${tone()}\n\n“称呼、回应方式、开始和结束的句子——这些不是装饰，它们把角色和现实分开。”\n\n对方要求你为这段互动选择一个固定的开始口令。`,
+    dom:`${tone()}\n\n你决定建立一个简短仪式：开始时确认意愿，结束时解除角色。它让权力交换有清晰边界，而不是无限延伸到现实关系。`,
+    cs:[
+      {t:'建立固定开始/结束口令',trust:10,control:5,stress:-2},
+      {t:'只保留结束口令',trust:7,control:1,stress:-2},
+      {t:'不需要仪式，直接继续',trust:0,control:4,stress:2}
+    ]
+  });
+  if(p.includes('discipline')) pool.push({
+    title:'DISCIPLINE · CONSEQUENCE',
+    sub:`${tone()}\n\n你刚才违反了一条已经确认过的小规则。对方没有羞辱你，也没有提高强度，只要求你重新复述规则，并决定是否愿意接受一个非伤害性的后果：暂停奖励、重复任务，或直接跳过。`,
+    dom:`${tone()}\n\n对方违反了一条已确认的小规则。你不把“惩罚”当发泄，而是让后果与规则本身相关：复述、重做、暂停奖励，或者明确跳过。`,
+    cs:[
+      {t:'接受重新执行一次',trust:6,control:8,stress:4},
+      {t:'选择暂停奖励',trust:5,control:6,stress:3},
+      {t:'这次跳过，不接受后果',trust:4,control:-4,stress:-2}
+    ]
+  });
+
+  if(!pool.length) pool.push({
+    title:'PROTOCOL · CONTROL',
+    sub:`${tone()}\n\n互动继续，但强度没有被机械地往上堆。对方更关注你是否还能清楚表达“愿意、不愿意、需要慢一点”。`,
+    dom:`${tone()}\n\n你继续掌控节奏，但没有把“更狠”当作进展。真正的难度是保持一致、清晰和可预测。`,
+    cs:[
+      {t:'继续当前节奏',trust:5,control:4,stress:2},
+      {t:'主动做一次状态确认',trust:9,control:0,stress:-5},
+      {t:'降低一档强度',trust:7,control:-2,stress:-6}
+    ]
+  });
+
+  const sc=pool[S.turn%pool.length];
+  let extra = '';
+  if(S.intensity>=4) extra='\n\n高强度模式：语言会更有压迫感，但安全口令与拒绝权始终有效。';
+  const cs=sc.cs.map((x,i)=>({...x,next:(S.turn>=8 && i===1)?'talk':'dynamic'}));
+  setScene(sc.title, (S.role==='sub'?sc.sub:sc.dom)+extra, cs);
+}
+
+function safeword(v){
+  if(S.ended)return;
+  if(v==='red'){
+    log('安全口令：红');
+    S.trust=Math.min(100,S.trust+8); S.stress=Math.max(0,S.stress-35);
+    nextScene('end');
+  }else if(v==='yellow'){
+    log('安全口令：黄');
+    S.trust=Math.min(100,S.trust+7); S.stress=Math.max(0,S.stress-20); S.control=Math.max(0,S.control-3);
+    nextScene('recover');
+  }else{
+    log('安全口令：绿');
+    S.trust=Math.min(100,S.trust+3);
+    setScene('CHECK-IN · GREEN', '“收到。绿。”\n\n状态确认完成，互动继续。',[
+      {t:'继续',trust:2,control:2,stress:0,next:'dynamic'}
+    ]);
+  }
+  update();
+}
+function restart(){
+  document.getElementById('game').classList.add('hidden');
+  document.getElementById('setup').classList.remove('hidden');
+}
 </script>
 </body>
 </html>
