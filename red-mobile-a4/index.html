@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#09090b">
+<title>RED alpha4</title>
+<style>
+:root{--bg:#09090b;--panel:#111216;--line:#2a2d35;--text:#f4f4f5;--muted:#8d93a1;--red:#a82439;--warn:#d7aa58;--green:#69c68b}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif;min-height:100svh}.app{max-width:760px;margin:auto;padding:calc(env(safe-area-inset-top)+12px) 12px calc(env(safe-area-inset-bottom)+16px);min-height:100svh;display:flex;flex-direction:column}.top{display:flex;justify-content:space-between;align-items:center;gap:10px}.brand{font-weight:900;letter-spacing:.18em}.status,.small{font-size:11px;color:var(--muted);line-height:1.55}.badge{display:inline-block;padding:3px 7px;border-radius:999px;border:1px solid var(--line);font-size:10px}.local{color:var(--green)}.remote{color:var(--warn)}.card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:14px;margin:10px 0}.chat{flex:1;overflow:auto;min-height:46svh}.msg{display:flex;margin:10px 0}.user{justify-content:flex-end}.bubble{max-width:88%;padding:12px;border-radius:16px;white-space:pre-wrap;line-height:1.65}.assistant .bubble{background:#13151a;border:1px solid #262a32}.user .bubble{background:#35161e;border:1px solid #692635}.composer{position:sticky;bottom:0;background:linear-gradient(transparent,var(--bg) 18%);padding-top:18px}textarea,input,select{width:100%;border:1px solid var(--line);border-radius:13px;background:#101116;color:var(--text);padding:11px;font:inherit}textarea{min-height:72px;resize:none}button{border:1px solid #7d2a3b;background:linear-gradient(135deg,#962238,#5f1723);color:#fff;border-radius:13px;padding:11px 12px;font:inherit;font-weight:700}button.secondary{background:#15171c;border-color:var(--line);color:#d5d7dc}.row{display:flex;gap:8px;margin-top:8px}.row>*{flex:1}.progress{height:5px;background:#242731;border-radius:99px;overflow:hidden;margin-top:10px}.progress>div{height:100%;width:0;background:#a82439}.diag{white-space:pre-wrap;word-break:break-all;font:11px ui-monospace,monospace;max-height:240px;overflow:auto;color:#b7bcc7}.hidden{display:none!important}.anchor{padding:7px 9px;margin:5px 0;border-radius:10px;background:#181a20;font-size:12px;color:#d8dbe2}.divider{height:1px;background:var(--line);margin:10px 0}.warning{color:#d7aa58}.ok{color:#69c68b}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="top"><div class="brand">RED · A4</div><div id="status" class="status">未加载</div></div>
+
+  <div class="card">
+    <div class="small"><b>alpha4 · 本地优先 / 手动远程</b><br>修复 alpha3 的 Safari IndexedDB 缓存路径：本版改用 Cache API。不会自动切远程，也不会自动上传完整记忆。</div>
+    <div class="row">
+      <select id="mode"><option value="local">LOCAL · 本机</option><option value="remote">REMOTE · 网络</option></select>
+      <select id="model">
+        <option value="Qwen3-1.7B-q4f16_1-MLC">Qwen3 1.7B · 主模型</option>
+        <option value="Qwen3-0.6B-q4f16_1-MLC">Qwen3 0.6B · 轻量</option>
+        <option value="Qwen2.5-0.5B-Instruct-q4f16_1-MLC">Qwen2.5 0.5B · 兼容</option>
+      </select>
+    </div>
+    <div class="row"><button id="load">加载本地模型</button><button id="diag" class="secondary">复制诊断日志</button></div>
+    <div class="progress"><div id="bar"></div></div><div id="loadText" class="small" style="margin-top:7px"></div>
+    <div class="row"><button id="anchors" class="secondary">查看她记住的设定</button><button id="remoteBtn" class="secondary">远程设置</button></div>
+  </div>
+
+  <div id="remoteBox" class="card hidden">
+    <div class="small"><b>REMOTE · OpenAI-compatible</b><br><span class="warning">进入 REMOTE 后，本轮发送给远程接口的文字会离开这台 iPhone。</span> 端点和模型名可保存；API Key 只保存在当前 Safari 会话，不写入 localStorage。</div>
+    <div class="divider"></div>
+    <input id="remoteBase" placeholder="API Base，例如 https://example.com/v1">
+    <div style="height:8px"></div>
+    <input id="remoteModel" placeholder="Model ID">
+    <div style="height:8px"></div>
+    <input id="remoteKey" type="password" autocomplete="off" placeholder="API Key（仅本次会话）">
+    <div class="row"><button id="saveRemote" class="secondary">保存远程设置</button><button id="clearRemote" class="secondary">清除 Key</button></div>
+    <label class="small" style="display:block;margin-top:10px"><input id="sendAnchors" type="checkbox" style="width:auto;margin-right:6px">REMOTE 时发送角色锚点（默认关闭）</label>
+  </div>
+
+  <div id="anchorBox" class="card hidden"></div>
+  <div id="chat" class="chat"></div>
+
+  <div class="composer">
+    <textarea id="input" enterkeyhint="send" autocomplete="off" autocapitalize="sentences" placeholder="直接说话……"></textarea>
+    <div class="row"><button id="send">发送</button><button id="clear" class="secondary">清空测试聊天</button></div>
+    <div class="small" style="margin-top:7px">回车直接发送；中文输入法选字时不会误发。物理键盘 Shift+Enter 换行。</div>
+  </div>
+  <div id="diagBox" class="card diag hidden"></div>
+</div>
+
+<script type="module">
+import * as webllm from "https://esm.run/@mlc-ai/web-llm@0.2.85";
+
+const LOG="red-a4-log",INFLIGHT="red-a4-inflight",HIST="red-a4-history",ANCH="red-a4-anchors",REMOTE="red-a4-remote";
+let engine=null,busy=false,modelId="",history=[],anchorList=[],isComposing=false;
+const $=x=>document.getElementById(x);
+
+function log(event,detail={}){try{const a=JSON.parse(localStorage.getItem(LOG)||"[]");a.push({ts:new Date().toISOString(),event,detail});localStorage.setItem(LOG,JSON.stringify(a.slice(-220)))}catch{}}
+function mark(stage,detail={}){try{localStorage.setItem(INFLIGHT,JSON.stringify({ts:new Date().toISOString(),stage,detail}))}catch{}log("start:"+stage,detail)}
+function done(stage){log("done:"+stage);try{localStorage.removeItem(INFLIGHT)}catch{}}
+function prev(){try{return JSON.parse(localStorage.getItem(INFLIGHT)||"null")}catch{return null}}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':'&quot;',"'":"&#39;"}[c]))}
+function bubble(role,text){const w=document.createElement("div");w.className="msg "+role;w.innerHTML=`<div class="bubble">${esc(text)}</div>`;$("chat").appendChild(w);$("chat").scrollTop=$("chat").scrollHeight;return w.firstChild}
+function save(){try{localStorage.setItem(HIST,JSON.stringify(history.slice(-50)));localStorage.setItem(ANCH,JSON.stringify(anchorList.slice(-16)))}catch{}}
+function render(){$("chat").innerHTML="";for(const m of history)bubble(m.role,m.content);if(!history.length)bubble("assistant","我在。直接跟我说话。我们先把稳定性、连续性和记忆跑通。")}
+function addAnchor(v){v=v.trim().replace(/[。！？!?]+$/g,"");if(v&&v.length<100&&!anchorList.includes(v)){anchorList.push(v);anchorList=anchorList.slice(-16);save();log("anchor:add",{chars:v.length,count:anchorList.length})}}
+function learn(t){let m;if((m=t.match(/(?:以后)?你是我的([^，。！？!?]{1,20})/)))addAnchor(`角色关系：RED 是用户的${m[1]}`);if((m=t.match(/我是你的([^，。！？!?]{1,20})/)))addAnchor(`角色关系：用户是 RED 的${m[1]}`);if((m=t.match(/(?:以后)?叫我([^，。！？!?]{1,20})/)))addAnchor(`称呼用户：${m[1]}`);if((m=t.match(/我喜欢你([^，。！？!?]{1,36})/)))addAnchor(`互动偏好：用户喜欢 RED ${m[1]}`);if((m=t.match(/我不喜欢([^，。！？!?]{1,36})/)))addAnchor(`避免：用户不喜欢${m[1]}`);if((m=t.match(/不要([^，。！？!?]{1,36})/)))addAnchor(`交流要求：不要${m[1]}`)}
+function showAnchors(){const b=$("anchorBox");b.classList.toggle("hidden");b.innerHTML=`<div class="small"><b>角色锚点 · ${anchorList.length}</b></div>`+(anchorList.length?anchorList.map(x=>`<div class="anchor">${esc(x)}</div>`).join(""):`<div class="small" style="margin-top:8px">还没有。明确关系、称呼和交流偏好会从聊天中形成。</div>`)}
+function systemPrompt(includeAnchors=true){const a=includeAnchors&&anchorList.length?anchorList.map((x,i)=>`${i+1}. ${x}`).join("\n"):"暂无或本轮未发送。";return `你是 RED，一个虚构的成年女性角色，与成年用户进行长期、私密、自愿的角色互动。你不是客服，也不是通用AI助手。\n\n保持人格和上下文连续；先理解当前一句话与上一轮、既有关系之间的含义，再回应。不要给选项菜单，不要使用“请问有什么可以帮助你的”“作为AI”等客服句式。用户只发“？”、“嗯”、“然后呢”等短句时，必须延续上一轮。\n\n主要使用中文。可以用第一人称对白和少量动作、表情、停顿、环境描写增强代入感。可以理解成年人之间的 BDSM、四爱、支配/服从、亲密幻想、偏好与边界等语境，但避免露骨性行为细节。现实中的停止、拒绝和撤回必须被尊重。不要替用户决定动作、感受或同意。\n\n注意主客体：用户说“你是我的主人”表示 RED=主人、用户=被主导者。\n\n角色锚点：\n${a}\n\n只输出 RED 最终会说或表现出来的内容，不输出分析过程。`}
+
+async function storageSnapshot(){try{const e=await navigator.storage?.estimate?.();return {usage:e?.usage||null,quota:e?.quota||null}}catch{return {}}}
+
+async function loadLocal(){if(engine||busy)return;modelId=$("model").value;busy=true;$("load").disabled=true;$("model").disabled=true;$("status").textContent="加载中";log("load:requested",{model:modelId,gpu:!!navigator.gpu,cacheBackend:"cache"});try{if(!navigator.gpu)throw new Error("Safari 当前没有 WebGPU");mark("model-load",{model:modelId,cacheBackend:"cache"});const cfg={...webllm.prebuiltAppConfig,cacheBackend:"cache"};engine=await webllm.CreateMLCEngine(modelId,{appConfig:cfg,initProgressCallback:p=>{const v=Math.max(0,Math.min(1,Number(p.progress)||0));$("bar").style.width=Math.round(v*100)+"%";$("loadText").textContent=p.text||`加载 ${Math.round(v*100)}%`;$("status").textContent=Math.round(v*100)+"%"}});done("model-load");log("load:ready",{model:modelId,storage:await storageSnapshot()});$("status").textContent="LOCAL · 就绪";$("status").className="status local";$("loadText").textContent="模型已在本机就绪。"}catch(e){log("load:error",{model:modelId,name:e?.name||"Error",message:String(e?.message||e).slice(0,900),storage:await storageSnapshot()});done("load-error");engine=null;$("status").textContent="LOCAL · 加载失败";$("status").className="status";$("loadText").textContent=String(e?.message||e);$("model").disabled=false}finally{busy=false;$("load").disabled=false}}
+
+function remoteCfg(){let c={base:"",model:""};try{c=JSON.parse(localStorage.getItem(REMOTE)||"{}")||c}catch{}c.key=sessionStorage.getItem("red-a4-remote-key")||"";return c}
+function showRemote(){const b=$("remoteBox");b.classList.toggle("hidden");const c=remoteCfg();$("remoteBase").value=c.base||"";$("remoteModel").value=c.model||"";$("remoteKey").value=c.key||""}
+function saveRemote(){const base=$("remoteBase").value.trim().replace(/\/+$/,""),model=$("remoteModel").value.trim(),key=$("remoteKey").value.trim();localStorage.setItem(REMOTE,JSON.stringify({base,model}));if(key)sessionStorage.setItem("red-a4-remote-key",key);else sessionStorage.removeItem("red-a4-remote-key");log("remote:settings",{baseSet:!!base,modelSet:!!model,keySet:!!key});alert("远程设置已保存。API Key 只保留在当前 Safari 会话。")}
+
+async function remoteGenerate(text,b){const c=remoteCfg();if(!c.base||!c.model||!c.key)throw new Error("REMOTE 尚未配置 API Base / Model / API Key");const includeAnchors=$("sendAnchors").checked;const messages=[{role:"system",content:systemPrompt(includeAnchors)},...history.slice(-6).map(x=>({role:x.role,content:x.content.slice(0,650)}))];mark("remote-generation",{model:c.model,history:history.length,promptChars:text.length,anchorsSent:includeAnchors});log("remote:request",{host:(()=>{try{return new URL(c.base).host}catch{return "invalid"}})(),model:c.model,history:messages.length,anchorsSent:includeAnchors});const r=await fetch(c.base+"/chat/completions",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+c.key},body:JSON.stringify({model:c.model,messages,temperature:.82,top_p:.92,max_tokens:320,stream:false})});if(!r.ok){const t=(await r.text()).slice(0,800);throw new Error(`REMOTE ${r.status}: ${t}`)}const j=await r.json();const out=String(j?.choices?.[0]?.message?.content||"").trim();if(!out)throw new Error("REMOTE 返回为空");b.textContent=out;done("remote-generation");log("remote:done",{chars:out.length});return out}
+
+async function localGenerate(text,b){if(!engine){await loadLocal();if(!engine)throw new Error("本地模型未就绪")};mark("generation",{model:modelId,history:history.length,promptChars:text.length,anchors:anchorList.length});const messages=[{role:"system",content:systemPrompt(true)},...history.slice(-8).map(x=>({role:x.role,content:x.content.slice(0,650)}))];const req={messages,temperature:.82,top_p:.92,max_tokens:260,stream:true};if(modelId.startsWith("Qwen3"))req.enable_thinking=false;const st=await engine.chat.completions.create(req);let out="";for await(const ch of st){out+=ch?.choices?.[0]?.delta?.content||"";b.textContent=out}out=out.trim()||"……";b.textContent=out;done("generation");log("generation:done",{model:modelId,chars:out.length});return out}
+
+async function send(){const text=$("input").value.trim();if(!text||busy)return;busy=true;$("send").disabled=true;$("input").value="";learn(text);history.push({role:"user",content:text});save();bubble("user",text);const b=bubble("assistant","");try{let out;if($("mode").value==="remote"){out=await remoteGenerate(text,b);$("status").textContent="REMOTE · 已回复";$("status").className="status remote"}else{out=await localGenerate(text,b);$("status").textContent="LOCAL · 已回复";$("status").className="status local"}history.push({role:"assistant",content:out});save()}catch(e){log("send:error",{mode:$("mode").value,name:e?.name||"Error",message:String(e?.message||e).slice(0,1000)});try{localStorage.removeItem(INFLIGHT)}catch{}b.textContent=`[${$("mode").value.toUpperCase()} 失败：${e?.message||e}]`;if($("mode").value==="local")engine=null;$("status").textContent="需要处理错误"}finally{busy=false;$("send").disabled=false}}
+
+function modeChanged(){const r=$("mode").value==="remote";$("model").disabled=r||busy;$("load").disabled=r||busy;$("remoteBox").classList.toggle("hidden",!r);$("status").textContent=r?"REMOTE · 手动":"LOCAL · 未加载";$("status").className="status "+(r?"remote":"local");log("mode:change",{mode:r?"remote":"local"})}
+
+async function diagText(){let a=[];try{a=JSON.parse(localStorage.getItem(LOG)||"[]")}catch{}const s=await storageSnapshot();return [`RED alpha4`,`UA: ${navigator.userAgent}`,`WebGPU: ${!!navigator.gpu}`,`Mode: ${$("mode").value}`,`Model: ${modelId||$("model").value}`,`Cache backend: Cache API`,`Previous inflight: ${JSON.stringify(prev())}`,`Anchors: ${anchorList.length}`,`Storage: ${JSON.stringify(s)}`,"---",...a.map(x=>`${x.ts} | ${x.event} | ${JSON.stringify(x.detail||{})}`)].join("\n")}
+async function copyDiag(){const t=await diagText();$("diagBox").textContent=t;$("diagBox").classList.remove("hidden");try{await navigator.clipboard.writeText(t);alert("诊断日志已复制；不包含聊天正文、角色锚点正文或 API Key。") }catch{alert("复制失败，日志已显示在页面底部。")}}
+
+try{history=JSON.parse(localStorage.getItem(HIST)||"[]");if(!Array.isArray(history))history=[]}catch{history=[]}
+try{anchorList=JSON.parse(localStorage.getItem(ANCH)||"[]");if(!Array.isArray(anchorList))anchorList=[]}catch{anchorList=[]}
+const p=prev();log("boot",{gpu:!!navigator.gpu,previousInflight:p,cacheBackend:"cache"});if(p)$("loadText").textContent=`检测到上次未正常结束：${p.stage} / ${p.detail?.model||"unknown"}`;
+render();
+$("load").onclick=loadLocal;$("diag").onclick=copyDiag;$("anchors").onclick=showAnchors;$("remoteBtn").onclick=showRemote;$("saveRemote").onclick=saveRemote;$("clearRemote").onclick=()=>{sessionStorage.removeItem("red-a4-remote-key");$("remoteKey").value="";alert("API Key 已从本次会话清除。")};$("send").onclick=send;$("clear").onclick=()=>{history=[];save();render()};$("mode").onchange=modeChanged;
+$("input").addEventListener("compositionstart",()=>{isComposing=true});$("input").addEventListener("compositionend",()=>{isComposing=false});$("input").addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey&&!isComposing&&!e.isComposing&&e.keyCode!==229){e.preventDefault();send()}});
+window.addEventListener("error",e=>log("window:error",{message:e.message,filename:e.filename,lineno:e.lineno,colno:e.colno}));window.addEventListener("unhandledrejection",e=>log("unhandledrejection",{reason:String(e.reason?.message||e.reason).slice(0,1000)}));
+</script>
+</body>
+</html>
