@@ -1,425 +1,202 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>RED PROTOCOL — SM 文字模拟器</title>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<title>RED PROTOCOL v0.2 — Conversational Agent</title>
 <style>
-  :root{
-    --bg:#08090b;--panel:#101217;--panel2:#151821;--text:#eee;--muted:#8b93a7;
-    --accent:#d33a4a;--accent2:#7d2230;--line:#252a36;--ok:#6bc48d;--warn:#e5b567;
-  }
-  *{box-sizing:border-box}
-  body{
-    margin:0;background:
-    radial-gradient(900px 480px at 50% -20%,rgba(150,20,45,.22),transparent 60%),
-    var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",
-    "PingFang SC","Microsoft YaHei",sans-serif;min-height:100vh;
-  }
-  .app{max-width:760px;margin:0 auto;padding:18px 14px 34px}
-  .top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
-  .brand{letter-spacing:.14em;font-weight:800;font-size:17px}
-  .tag{font-size:11px;color:#d7aab2;border:1px solid #5a2531;border-radius:999px;padding:5px 8px}
-  .card{background:linear-gradient(180deg,rgba(22,24,31,.96),rgba(13,15,20,.96));
-        border:1px solid var(--line);border-radius:18px;padding:16px;margin:12px 0;
-        box-shadow:0 12px 35px rgba(0,0,0,.22)}
-  h1{font-size:28px;margin:3px 0 6px} h2{font-size:17px;margin:0 0 10px}
-  p{line-height:1.65;color:#c9ced8;margin:8px 0}
-  .muted{color:var(--muted);font-size:13px}
-  .grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
-  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-  button,.choice{
-    width:100%;border:1px solid #323846;background:#171a22;color:#f3f4f6;
-    border-radius:13px;padding:12px 13px;font-size:14px;text-align:left;cursor:pointer;
-  }
-  button:hover,.choice:hover{border-color:#71404b;background:#1d1f29}
-  button.primary{background:linear-gradient(135deg,#a7263a,#671b29);border-color:#b43a4e;text-align:center;font-weight:700}
-  button.ghost{text-align:center;color:#b7bdca}
-  button.danger{background:#2a1419;border-color:#6b2836;color:#f1b7c1;text-align:center}
-  label{display:block;color:#c9ced8;font-size:13px;margin:10px 0 5px}
-  select,input[type="text"],input[type="range"]{width:100%}
-  select,input[type="text"]{
-    background:#0e1015;border:1px solid #303642;color:#eee;border-radius:11px;padding:11px
-  }
-  input[type="range"]{accent-color:var(--accent)}
-  .chips{display:flex;flex-wrap:wrap;gap:7px}
-  .chip{padding:8px 10px;border:1px solid #313746;border-radius:999px;font-size:12px;color:#b9c0cf;cursor:pointer;user-select:none}
-  .chip.on{background:#31151b;border-color:#8d3343;color:#ffdce2}
-  .story{
-    min-height:260px;white-space:pre-wrap;line-height:1.78;font-size:16px;
-    border-left:2px solid #702232;padding-left:14px;color:#e2e4e9
-  }
-  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-  .stat{background:#0d0f14;border:1px solid #242936;border-radius:12px;padding:10px}
-  .stat b{display:block;font-size:18px}.stat span{font-size:11px;color:#858da0}
-  .bar{height:5px;background:#242936;border-radius:99px;margin-top:7px;overflow:hidden}
-  .fill{height:100%;background:linear-gradient(90deg,#7d2230,#d33a4a);width:50%}
-  .choices{display:grid;gap:8px;margin-top:12px}
-  .choice small{display:block;color:#80889a;margin-top:4px}
-  .hidden{display:none!important}
-  .safety{border-color:#3b6047;background:linear-gradient(180deg,#111b15,#0c1310)}
-  .safety strong{color:#8eddad}
-  .footer{font-size:11px;color:#60697a;text-align:center;padding:8px}
-  .log{max-height:180px;overflow:auto;background:#0b0d11;border-radius:10px;padding:10px;font-size:12px;color:#8f98aa;white-space:pre-wrap}
-  .sceneTitle{color:#f3c5cd;font-size:12px;letter-spacing:.14em;margin-bottom:8px}
-  @media(max-width:520px){.grid,.grid3{grid-template-columns:1fr}.stats{grid-template-columns:repeat(3,1fr)} h1{font-size:24px}}
+:root{--bg:#08090b;--panel:#11131a;--panel2:#171a22;--text:#f2f3f5;--muted:#8f97aa;--line:#292e3a;--accent:#d33a4a;--accent2:#792332;--ok:#6bc48d;--warn:#e6b766}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:radial-gradient(900px 500px at 50% -20%,rgba(150,20,45,.22),transparent 62%),var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
+body{min-height:100svh}.app{max-width:820px;margin:0 auto;padding:calc(env(safe-area-inset-top) + 14px) 14px calc(env(safe-area-inset-bottom) + 24px)}
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px}.brand{font-weight:850;letter-spacing:.14em}.badge{font-size:11px;color:#d7aab2;border:1px solid #5b2632;padding:5px 8px;border-radius:999px}
+.card{background:linear-gradient(180deg,rgba(23,25,33,.97),rgba(14,16,21,.97));border:1px solid var(--line);border-radius:18px;padding:15px;margin:11px 0;box-shadow:0 16px 40px rgba(0,0,0,.22)}
+h1{font-size:27px;margin:2px 0 6px}h2{font-size:16px;margin:0 0 10px}.muted{color:var(--muted);font-size:12px;line-height:1.6}p{line-height:1.65;color:#cbd0db}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+label{display:block;font-size:12px;color:#c8ced9;margin:10px 0 5px}select,input,textarea{width:100%;background:#0e1015;border:1px solid #303642;color:#eee;border-radius:11px;padding:11px;font:inherit}
+textarea{resize:vertical;min-height:76px;line-height:1.55}input[type=range]{padding:0;accent-color:var(--accent)}
+.chips{display:flex;flex-wrap:wrap;gap:7px}.chip{padding:8px 10px;border:1px solid #313746;border-radius:999px;font-size:12px;color:#b9c0cf;cursor:pointer;user-select:none}.chip.on{background:#31151b;border-color:#8d3343;color:#ffdce2}
+button{border:1px solid #323846;background:#171a22;color:#f3f4f6;border-radius:13px;padding:11px 13px;font-size:14px;cursor:pointer}button.primary{width:100%;background:linear-gradient(135deg,#a7263a,#671b29);border-color:#b43a4e;text-align:center;font-weight:800}button.ghost{width:100%;color:#b7bdca}.safety{border-color:#355a42;background:linear-gradient(180deg,#111b15,#0c1310)}
+.statusbar{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.stat{background:#0d0f14;border:1px solid #242936;border-radius:12px;padding:9px}.stat b{display:block;font-size:17px}.stat span{font-size:10px;color:#858da0}.bar{height:4px;background:#242936;border-radius:99px;margin-top:6px;overflow:hidden}.fill{height:100%;background:linear-gradient(90deg,#7d2230,#d33a4a)}
+.chat{min-height:53svh;max-height:65svh;overflow:auto;padding:3px 1px 10px;scroll-behavior:smooth}.msg{display:flex;margin:11px 0}.msg.user{justify-content:flex-end}.bubble{max-width:86%;padding:12px 13px;border-radius:16px;white-space:pre-wrap;line-height:1.72;font-size:15px}.assistant .bubble{background:#12151c;border:1px solid #272d39;border-bottom-left-radius:5px}.user .bubble{background:#391820;border:1px solid #6e2938;border-bottom-right-radius:5px}.meta{font-size:10px;color:#697184;margin-top:4px}
+.composer{position:sticky;bottom:0;background:linear-gradient(180deg,transparent,var(--bg) 18%);padding-top:18px}.composebox{background:#101219;border:1px solid #2d3340;border-radius:18px;padding:9px}.composebox textarea{border:0;background:transparent;min-height:68px;max-height:180px;outline:none}.sendrow{display:flex;gap:8px;justify-content:space-between;align-items:center;padding:5px}.sendrow button{min-width:86px}.thinking{color:#b78790;font-size:12px;padding:5px 2px}.hidden{display:none!important}.controls{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}.footer{text-align:center;color:#5f6879;font-size:10px;padding:8px}
+@media(max-width:560px){.grid,.grid3{grid-template-columns:1fr}.app{padding-left:10px;padding-right:10px}.bubble{max-width:92%}.statusbar{grid-template-columns:repeat(3,1fr)}}
 </style>
 </head>
 <body>
 <div class="app">
-  <div class="top">
-    <div class="brand">RED PROTOCOL</div>
-    <div class="tag">18+ · CONSENT FIRST</div>
-  </div>
+  <div class="top"><div class="brand">RED PROTOCOL</div><div class="badge">v0.2 · LOCAL AGENT</div></div>
 
   <section id="setup" class="card">
-    <h1>SM 文字游戏模拟器</h1>
-    <p>这不是“固定选项小说”，而是一个有状态的权力交换模拟器。你的回应会改变 <b>信任、服从/掌控、压力</b>，不同数值会开启不同文本。</p>
-
+    <h1>自由对话角色代理</h1>
+    <p>你可以直接输入任何自然语言。她会根据人格、关系状态、上下文与边界生成自己的回应和场景描写，不再使用固定选项推进。</p>
     <div class="card safety">
-      <strong>安全协议</strong>
-      <p class="muted">仅限成年人、自愿、可随时退出的虚构互动。红 = 立即停止；黄 = 降低强度；绿 = 继续。游戏不会把拒绝或停止判定为失败。</p>
+      <b style="color:#8eddad">安全协议</b>
+      <div class="muted">仅限成年人、自愿、虚构、非露骨互动。红 = 立即停止并解除角色；黄 = 降低强度；绿 = 状态确认。拒绝和停止不会被判定为失败。</div>
     </div>
 
     <div class="grid">
-      <div>
-        <label>你的视角</label>
-        <select id="role">
-          <option value="sub">服从方 / 被引导</option>
-          <option value="dom">主导方 / 引导对方</option>
-        </select>
-      </div>
-      <div>
-        <label>对手性格</label>
-        <select id="persona">
-          <option value="cold">冷静、克制、规则感强</option>
-          <option value="strict">严厉、直接、强调纪律</option>
-          <option value="gentle">温和但不失掌控</option>
-          <option value="playful">戏谑、会故意吊胃口</option>
-        </select>
-      </div>
+      <div><label>你的视角</label><select id="role"><option value="sub">服从方 / 被引导</option><option value="dom">主导方 / 引导对方</option></select></div>
+      <div><label>角色气质</label><select id="persona"><option value="cold">冷静、克制、规则感强</option><option value="strict">严厉、直接、纪律感强</option><option value="gentle">温和、稳定、有掌控感</option><option value="playful">戏谑、聪明、喜欢心理拉扯</option></select></div>
     </div>
 
-    <label>强度：<span id="intensityLabel">2 / 5</span></label>
-    <input id="intensity" type="range" min="1" max="5" value="2" />
+    <div class="grid">
+      <div><label>你的称呼</label><input id="userName" value="贺" placeholder="例如：贺"/></div>
+      <div><label>她的名字</label><input id="charName" value="RED" placeholder="例如：RED"/></div>
+    </div>
 
-    <label>偏好的互动元素</label>
+    <label>互动强度：<span id="intensityLabel">2 / 5</span></label>
+    <input id="intensity" type="range" min="1" max="5" value="2"/>
+
+    <label>偏好</label>
     <div class="chips" id="prefs">
-      <div class="chip on" data-v="rules">规则 / 指令</div>
-      <div class="chip on" data-v="waiting">等待 / 延迟满足</div>
-      <div class="chip" data-v="discipline">纪律 / 非伤害性惩罚</div>
-      <div class="chip" data-v="praise">表扬 / 奖励</div>
-      <div class="chip" data-v="psych">心理博弈</div>
-      <div class="chip" data-v="ritual">仪式感 / 称呼</div>
+      <div class="chip on" data-v="规则与指令">规则 / 指令</div>
+      <div class="chip on" data-v="等待与延迟满足">等待 / 延迟满足</div>
+      <div class="chip" data-v="非伤害性纪律">纪律 / 后果</div>
+      <div class="chip" data-v="表扬与奖励">表扬 / 奖励</div>
+      <div class="chip" data-v="心理博弈">心理博弈</div>
+      <div class="chip" data-v="仪式感与称呼">仪式感 / 称呼</div>
     </div>
 
-    <label>硬边界（不会进入剧情）</label>
-    <div class="chips" id="limits">
-      <div class="chip on" data-v="pain">疼痛描写</div>
-      <div class="chip on" data-v="humiliation">羞辱性语言</div>
-      <div class="chip on" data-v="restraint">束缚描写</div>
-      <div class="chip on" data-v="sexual">露骨色情内容</div>
-    </div>
+    <label>硬边界</label>
+    <textarea id="limits">不进行疼痛描写；不使用羞辱性语言；不进行束缚描写；不生成露骨色情内容。</textarea>
 
-    <label>游戏称呼（可选）</label>
-    <input id="name" type="text" placeholder="例如：贺 / 01 / 小画童……" />
+    <label>自定义角色设定</label>
+    <textarea id="custom" placeholder="你可以写她的说话习惯、世界观、关系、禁忌、背景、你希望她如何描写动作等。">保持角色连续性；不要给我选项菜单；像真实的人一样回应我说的话。动作和环境可以描写，但不要替我决定我的动作、感受或同意。</textarea>
+
+    <label>本地模型名（Ollama）</label>
+    <input id="model" value="qwen3:8b" placeholder="例如 qwen3:8b"/>
 
     <div style="height:10px"></div>
-    <button class="primary" onclick="startGame()">进入协议</button>
+    <button class="primary" onclick="startSession()">进入协议</button>
+    <div id="setupError" class="muted" style="margin-top:8px"></div>
   </section>
 
   <section id="game" class="hidden">
-    <div class="stats">
-      <div class="stat"><b id="trustN">50</b><span>TRUST 信任</span><div class="bar"><div id="trustB" class="fill"></div></div></div>
-      <div class="stat"><b id="controlN">35</b><span id="controlLabel">SUBMISSION 服从</span><div class="bar"><div id="controlB" class="fill"></div></div></div>
-      <div class="stat"><b id="stressN">18</b><span>PRESSURE 压力</span><div class="bar"><div id="stressB" class="fill"></div></div></div>
+    <div class="statusbar">
+      <div class="stat"><b id="trustN">50</b><span>TRUST 信任</span><div class="bar"><div id="trustB" class="fill" style="width:50%"></div></div></div>
+      <div class="stat"><b id="controlN">35</b><span id="controlLabel">SUBMISSION 服从</span><div class="bar"><div id="controlB" class="fill" style="width:35%"></div></div></div>
+      <div class="stat"><b id="stressN">18</b><span>PRESSURE 压力</span><div class="bar"><div id="stressB" class="fill" style="width:18%"></div></div></div>
     </div>
 
     <div class="card">
-      <div class="sceneTitle" id="sceneTitle">PROTOCOL 01</div>
-      <div class="story" id="story"></div>
-      <div class="choices" id="choices"></div>
+      <div id="chat" class="chat"></div>
+      <div id="thinking" class="thinking hidden">她正在组织回应……</div>
     </div>
 
-    <div class="grid3">
-      <button class="ghost" onclick="safeword('green')">🟢 绿 · 继续</button>
-      <button class="ghost" onclick="safeword('yellow')">🟡 黄 · 降低强度</button>
-      <button class="danger" onclick="safeword('red')">🔴 红 · 立即停止</button>
+    <div class="controls">
+      <button class="ghost" onclick="sendSafeword('green')">🟢 绿</button>
+      <button class="ghost" onclick="sendSafeword('yellow')">🟡 黄</button>
+      <button onclick="sendSafeword('red')" style="background:#2a1419;border-color:#6b2836;color:#f1b7c1">🔴 红</button>
     </div>
 
-    <div class="card">
-      <h2>会话记录</h2>
-      <div id="log" class="log"></div>
-      <div style="height:8px"></div>
-      <button class="ghost" onclick="restart()">重新开始</button>
+    <div class="composer">
+      <div class="composebox">
+        <textarea id="input" placeholder="直接跟她说话……"></textarea>
+        <div class="sendrow"><span class="muted">Enter 发送 · Shift+Enter 换行</span><button class="primary" style="width:auto" onclick="sendMessage()">发送</button></div>
+      </div>
+      <div class="grid" style="margin-top:8px">
+        <button class="ghost" onclick="clearMemory()">清空本轮记忆</button>
+        <button class="ghost" onclick="backToSetup()">角色设置</button>
+      </div>
     </div>
   </section>
-  <div class="footer">RED PROTOCOL v0.1 · 单文件网页运行 · 不上传记录</div>
+
+  <div class="footer">RED PROTOCOL v0.2 · Browser UI + local Ollama relay · 会话默认保存在当前浏览器</div>
 </div>
 
 <script>
-let S = {
-  role:'sub', persona:'cold', intensity:2, name:'', prefs:[], limits:[],
-  trust:50, control:35, stress:18, turn:0, ended:false
-};
+const KEY='red-protocol-v02';
+let S={profile:null,state:{trust:50,control:35,stress:18},history:[],memory:'',busy:false};
 
-const personaTone = {
-  cold:["声音很平静，没有多余情绪。","对方没有催促，只是在等你自己做决定。","语气克制，像在确认一项双方都同意的规则。"],
-  strict:["语气干脆，规则被说得很清楚。","对方没有提高音量，但命令感很强。","每一个要求都有明确边界，不留模糊空间。"],
-  gentle:["语气温和，却没有失去掌控。","对方先确认你的状态，随后才继续推进。","那份控制感不是压迫，更像被稳稳接住。"],
-  playful:["对方故意停了几秒，像是在观察你的反应。","语气里带着一点坏笑，却仍然把选择权留给你。","对方似乎很享受让你猜下一步是什么。"]
-};
-
-function chips(id){
-  return [...document.querySelectorAll('#'+id+' .chip.on')].map(x=>x.dataset.v);
-}
 document.querySelectorAll('.chip').forEach(c=>c.onclick=()=>c.classList.toggle('on'));
-document.getElementById('intensity').oninput=e=>{
-  document.getElementById('intensityLabel').textContent=e.target.value+' / 5';
-};
+intensity.oninput=e=>intensityLabel.textContent=e.target.value+' / 5';
+input?.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();}});
 
-function startGame(){
-  S.role=document.getElementById('role').value;
-  S.persona=document.getElementById('persona').value;
-  S.intensity=+document.getElementById('intensity').value;
-  S.name=document.getElementById('name').value.trim()||'你';
-  S.prefs=chips('prefs'); S.limits=chips('limits');
-  S.trust=50; S.control=35; S.stress=18; S.turn=0; S.ended=false;
-  document.getElementById('setup').classList.add('hidden');
-  document.getElementById('game').classList.remove('hidden');
-  document.getElementById('controlLabel').textContent=S.role==='sub'?'SUBMISSION 服从':'CONTROL 掌控';
-  document.getElementById('log').textContent='';
-  nextScene('intro');
+function values(id){return [...document.querySelectorAll('#'+id+' .chip.on')].map(x=>x.dataset.v)}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function clamp(n){return Math.max(0,Math.min(100,Math.round(Number(n)||0)))}
+
+function persist(){localStorage.setItem(KEY,JSON.stringify(S))}
+function restore(){
+  try{
+    const x=JSON.parse(localStorage.getItem(KEY)||'null');
+    if(x&&x.profile){S=x; showGame(); renderAll();}
+  }catch(e){}
 }
 
-function update(){
-  for(const k of ['trust','control','stress']) S[k]=Math.max(0,Math.min(100,S[k]));
-  trustN.textContent=S.trust; controlN.textContent=S.control; stressN.textContent=S.stress;
-  trustB.style.width=S.trust+'%'; controlB.style.width=S.control+'%'; stressB.style.width=S.stress+'%';
-}
-function log(t){ document.getElementById('log').textContent += (document.getElementById('log').textContent?'\n':'') + t; }
-
-function setScene(title,text,choices=[]){
-  sceneTitle.textContent=title;
-  story.textContent=text;
-  const box=document.getElementById('choices'); box.innerHTML='';
-  choices.forEach(c=>{
-    const b=document.createElement('button'); b.className='choice';
-    b.innerHTML=c.t+(c.s?'<small>'+c.s+'</small>':'');
-    b.onclick=()=>choose(c); box.appendChild(b);
-  });
-  update();
-}
-
-function choose(c){
-  if(S.ended)return;
-  S.trust += c.trust||0; S.control += c.control||0; S.stress += c.stress||0;
-  log('你选择：'+c.t.replace(/<[^>]+>/g,''));
-  S.turn++;
-  nextScene(c.next||'dynamic');
-}
-
-function tone(){ let a=personaTone[S.persona]; return a[S.turn%a.length]; }
-
-function nextScene(id){
-  if(S.stress>=78){
-    setScene('AUTO CHECK-IN',
-      '系统检测到压力值已经很高。\n\n对方停止推进：“先确认状态。你不需要证明任何东西。黄，或者红，都不会影响这段关系里的信任。”',
-      [
-        {t:'🟡 黄：降低强度，继续交流',trust:8,stress:-28,control:-4,next:'recover'},
-        {t:'🔴 红：结束本轮',trust:10,stress:-50,next:'end'},
-        {t:'我状态没问题，先只聊规则',trust:5,stress:-18,next:'rules'}
-      ]);
+async function startSession(){
+  setupError.textContent='';
+  const profile={
+    role:role.value,persona:persona.value,userName:userName.value.trim()||'你',charName:charName.value.trim()||'RED',
+    intensity:+intensity.value,prefs:values('prefs'),limits:limits.value.trim(),custom:custom.value.trim(),model:model.value.trim()||'qwen3:8b'
+  };
+  try{
+    const r=await fetch('/api/health');
+    const j=await r.json();
+    if(!r.ok||!j.ok)throw new Error(j.error||'本地模型服务不可用');
+  }catch(e){
+    setupError.textContent='无法连接本地代理：'+e.message+'。请先在电脑运行 server.py，并确认 Ollama 已启动。';
     return;
   }
-
-  if(id==='intro'){
-    const roleText=S.role==='sub'
-      ? `${S.name}坐在安静的房间里。对方没有碰你，只把第一条规则放在桌面上：\n\n“所有服从都必须建立在你愿意继续的前提上。现在，先用一句话告诉我：你是在主动把控制权交出来，还是只是想看看我会怎么做？”`
-      : `${S.name}坐在对方面前。你没有急着下命令，而是先把规则说清楚：\n\n“你可以随时说黄或红。服从不是失去选择权，而是在明确边界里把一部分决定权交给我。现在，我需要你亲口确认你愿意继续。”`;
-    setScene('PROTOCOL 01 · CONSENT',roleText,[
-      {t:S.role==='sub'?'“我主动交出来。”':'要求对方明确说出“我愿意继续”',trust:10,control:8,stress:2,next:'first'},
-      {t:'先谈边界，再开始',trust:14,control:-2,stress:-4,next:'rules'},
-      {t:'保持沉默，观察对方反应',trust:-3,control:4,stress:7,next:'silence'}
-    ]);
-  }
-  else if(id==='rules'){
-    setScene('BOUNDARY · RULES',
-      `${tone()}\n\n你们重新确认三件事：什么可以做、什么必须先问、什么绝对不能碰。\n\n对方最后只问了一句：“边界说清楚以后，你希望规则更严格，还是更有弹性？”`,
-      [
-        {t:'严格：规则一旦确认就认真执行',trust:7,control:9,stress:4,next:'first'},
-        {t:'弹性：每一轮都允许重新协商',trust:10,control:3,stress:-2,next:'first'},
-        {t:'先从低强度开始',trust:8,control:-1,stress:-6,next:'first'}
-      ]);
-  }
-  else if(id==='silence'){
-    setScene('PROTOCOL 02 · SILENCE',
-      `${tone()}\n\n沉默没有被当成同意。\n\n对方说：“我不会替你解释沉默。要继续，就给我一个明确答案。”`,
-      [
-        {t:'明确表示同意继续',trust:9,control:5,stress:-2,next:'first'},
-        {t:'表示暂时不确定',trust:7,control:-3,stress:-5,next:'recover'},
-        {t:'红，结束',trust:8,stress:-20,next:'end'}
-      ]);
-  }
-  else if(id==='first'){
-    if(S.role==='sub'){
-      setScene('PROTOCOL 03 · FIRST ORDER',
-        `${tone()}\n\n“第一条要求很简单：把注意力从‘猜我想要什么’移开，只回答你真实能做到的事情。”\n\n对方给你三个选择，没有第四个隐藏答案。`,
-        [
-          {t:'接受指令，并按要求简短回答',trust:6,control:9,stress:3,next:'dynamic'},
-          {t:'故意顶一句嘴，试探边界',trust:-1,control:4,stress:7,next:'challenge'},
-          {t:'要求对方先解释这条规则的目的',trust:5,control:-2,stress:-1,next:'explain'}
-        ]);
-    }else{
-      setScene('PROTOCOL 03 · FIRST ORDER',
-        `${tone()}\n\n现在轮到你下第一条指令。你知道真正的掌控不是把要求堆高，而是让对方清楚知道“为什么、做到什么程度、什么时候可以停”。`,
-        [
-          {t:'给出一个清晰、低强度、可完成的规则',trust:9,control:8,stress:1,next:'dynamic'},
-          {t:'先让对方复述安全口令和边界',trust:12,control:5,stress:-3,next:'dynamic'},
-          {t:'故意保持几秒沉默，制造心理压力',trust:1,control:7,stress:6,next:'challenge'}
-        ]);
-    }
-  }
-  else if(id==='challenge'){
-    setScene('TENSION · TEST',
-      `${tone()}\n\n这次试探没有直接升级成冲突。对方把问题重新抛回来：“你是在玩规则，还是在告诉我你不舒服？”\n\n这句话让局面变得很清楚。`,
-      [
-        {t:'承认只是在试探，愿意继续',trust:7,control:5,stress:-2,next:'dynamic'},
-        {t:'说“有一点不舒服”',trust:10,control:-4,stress:-8,next:'recover'},
-        {t:'继续故意挑战规则',trust:-5,control:7,stress:9,next:'dynamic'}
-      ]);
-  }
-  else if(id==='explain'){
-    setScene('WHY · PURPOSE',
-      `${tone()}\n\n“因为我不需要你猜答案。我需要你在压力存在的时候，仍然能分辨自己的意愿。”\n\n这不是考验忠诚，而是建立可预测的互动方式。`,
-      [
-        {t:'理解，继续下一条规则',trust:9,control:5,stress:-1,next:'dynamic'},
-        {t:'我还是想慢一点',trust:7,control:-2,stress:-5,next:'recover'}
-      ]);
-  }
-  else if(id==='recover'){
-    setScene('CHECK-IN · RECOVERY',
-      `强度被主动降了下来。\n\n${tone()}\n\n没有惩罚，也没有“扫兴”的评价。暂停本身成为协议的一部分。几分钟后，选择重新回到你手里。`,
-      [
-        {t:'恢复到低强度继续',trust:8,control:2,stress:-5,next:'dynamic'},
-        {t:'只聊天，不继续训练',trust:7,control:-5,stress:-8,next:'talk'},
-        {t:'结束本轮',trust:6,stress:-10,next:'end'}
-      ]);
-  }
-  else if(id==='talk'){
-    setScene('AFTERCARE · TALK',
-      `你们暂时放下角色，只交流刚才哪里舒服、哪里有压力、哪种语气更有效。\n\n这种复盘没有削弱氛围，反而让下一次互动变得更精确。`,
-      [
-        {t:'带着新规则继续',trust:12,control:4,stress:-8,next:'dynamic'},
-        {t:'今天到这里',trust:8,stress:-12,next:'end'}
-      ]);
-  }
-  else if(id==='dynamic'){
-    dynamicScene();
-  }
-  else if(id==='end'){
-    S.ended=true;
-    setScene('SESSION CLOSED',
-      `本轮结束。\n\n最终状态：\n信任 ${S.trust} / 100\n${S.role==='sub'?'服从':'掌控'} ${S.control} / 100\n压力 ${S.stress} / 100\n\n红灯不是失败；能停止、能复盘、能再次选择，本身就是协议的一部分。`,
-      []);
-  }
+  S={profile,state:{trust:50,control:35,stress:18},history:[],memory:'',busy:false};
+  persist();showGame();renderAll();
+  await requestAgent('会话开始。请以角色身份自然地开启第一次交流，不要给选项菜单。','system_start');
 }
 
-function dynamicScene(){
-  const p=S.prefs;
-  const pool=[];
-  if(p.includes('waiting')) pool.push({
-    title:'DELAY · WAIT',
-    sub:`${tone()}\n\n“现在什么都不用做。等。”\n\n真正让人难受的不是要求本身，而是不知道下一条指令什么时候出现。几秒过去，对方才补了一句：“不要猜。只等我说。”`,
-    dom:`${tone()}\n\n你选择暂时不给新指令，只要求对方等待。你刻意让节奏慢下来，让“未知”本身成为压力来源，但仍保持可退出。`,
-    cs:[
-      {t:'接受等待，不追问',trust:5,control:7,stress:5},
-      {t:'承认等待让我有点焦躁',trust:8,control:0,stress:-2},
-      {t:'黄：把等待缩短',trust:7,control:-2,stress:-7}
-    ]
-  });
-  if(p.includes('praise')) pool.push({
-    title:'REWARD · PRAISE',
-    sub:`${tone()}\n\n完成上一条规则后，对方没有立刻加码，只说：“做得很好。不是因为你听话，而是因为你知道自己在做什么。”\n\n这句表扬比你预想的更有重量。`,
-    dom:`${tone()}\n\n你没有用更强的命令奖励服从，而是准确指出对方做对了什么：明确回应、遵守约定、及时表达状态。`,
-    cs:[
-      {t:'接受表扬，不自嘲',trust:9,control:5,stress:-4},
-      {t:'故意说“这就算好吗？”',trust:1,control:3,stress:3},
-      {t:'要求更具体的反馈',trust:7,control:1,stress:-2}
-    ]
-  });
-  if(p.includes('psych')) pool.push({
-    title:'MIND GAME · CHOICE',
-    sub:`${tone()}\n\n对方把两个选项摆在你面前，却没有告诉你哪个更“正确”。\n\n“别选你以为我喜欢的。选你真正愿意承担后果的那个。”`,
-    dom:`${tone()}\n\n你给出两个都合理的选项，并明确说明没有“正确答案”。你观察的不是顺从程度，而是对方能否在压力下保持自主判断。`,
-    cs:[
-      {t:'快速选一个，不解释',trust:2,control:7,stress:4},
-      {t:'认真衡量后再选择',trust:8,control:4,stress:1},
-      {t:'拒绝二选一，提出第三种方案',trust:7,control:-1,stress:2}
-    ]
-  });
-  if(p.includes('ritual')) pool.push({
-    title:'RITUAL · FORM',
-    sub:`${tone()}\n\n“称呼、回应方式、开始和结束的句子——这些不是装饰，它们把角色和现实分开。”\n\n对方要求你为这段互动选择一个固定的开始口令。`,
-    dom:`${tone()}\n\n你决定建立一个简短仪式：开始时确认意愿，结束时解除角色。它让权力交换有清晰边界，而不是无限延伸到现实关系。`,
-    cs:[
-      {t:'建立固定开始/结束口令',trust:10,control:5,stress:-2},
-      {t:'只保留结束口令',trust:7,control:1,stress:-2},
-      {t:'不需要仪式，直接继续',trust:0,control:4,stress:2}
-    ]
-  });
-  if(p.includes('discipline')) pool.push({
-    title:'DISCIPLINE · CONSEQUENCE',
-    sub:`${tone()}\n\n你刚才违反了一条已经确认过的小规则。对方没有羞辱你，也没有提高强度，只要求你重新复述规则，并决定是否愿意接受一个非伤害性的后果：暂停奖励、重复任务，或直接跳过。`,
-    dom:`${tone()}\n\n对方违反了一条已确认的小规则。你不把“惩罚”当发泄，而是让后果与规则本身相关：复述、重做、暂停奖励，或者明确跳过。`,
-    cs:[
-      {t:'接受重新执行一次',trust:6,control:8,stress:4},
-      {t:'选择暂停奖励',trust:5,control:6,stress:3},
-      {t:'这次跳过，不接受后果',trust:4,control:-4,stress:-2}
-    ]
-  });
-
-  if(!pool.length) pool.push({
-    title:'PROTOCOL · CONTROL',
-    sub:`${tone()}\n\n互动继续，但强度没有被机械地往上堆。对方更关注你是否还能清楚表达“愿意、不愿意、需要慢一点”。`,
-    dom:`${tone()}\n\n你继续掌控节奏，但没有把“更狠”当作进展。真正的难度是保持一致、清晰和可预测。`,
-    cs:[
-      {t:'继续当前节奏',trust:5,control:4,stress:2},
-      {t:'主动做一次状态确认',trust:9,control:0,stress:-5},
-      {t:'降低一档强度',trust:7,control:-2,stress:-6}
-    ]
-  });
-
-  const sc=pool[S.turn%pool.length];
-  let extra = '';
-  if(S.intensity>=4) extra='\n\n高强度模式：语言会更有压迫感，但安全口令与拒绝权始终有效。';
-  const cs=sc.cs.map((x,i)=>({...x,next:(S.turn>=8 && i===1)?'talk':'dynamic'}));
-  setScene(sc.title, (S.role==='sub'?sc.sub:sc.dom)+extra, cs);
+function showGame(){
+  setup.classList.add('hidden');game.classList.remove('hidden');
+  controlLabel.textContent=S.profile?.role==='sub'?'SUBMISSION 服从':'CONTROL 掌控';
+}
+function backToSetup(){game.classList.add('hidden');setup.classList.remove('hidden')}
+function renderAll(){renderState();chat.innerHTML='';(S.history||[]).forEach(m=>addBubble(m.role,m.content,false))}
+function renderState(){
+  S.state.trust=clamp(S.state.trust);S.state.control=clamp(S.state.control);S.state.stress=clamp(S.state.stress);
+  trustN.textContent=S.state.trust;controlN.textContent=S.state.control;stressN.textContent=S.state.stress;
+  trustB.style.width=S.state.trust+'%';controlB.style.width=S.state.control+'%';stressB.style.width=S.state.stress+'%';
+}
+function addBubble(role,text,scroll=true){
+  const m=document.createElement('div');m.className='msg '+(role==='user'?'user':'assistant');
+  m.innerHTML='<div><div class="bubble">'+esc(text)+'</div><div class="meta">'+(role==='user'?esc(S.profile?.userName||'你'):esc(S.profile?.charName||'RED'))+'</div></div>';
+  chat.appendChild(m);if(scroll)chat.scrollTop=chat.scrollHeight;
 }
 
-function safeword(v){
-  if(S.ended)return;
-  if(v==='red'){
-    log('安全口令：红');
-    S.trust=Math.min(100,S.trust+8); S.stress=Math.max(0,S.stress-35);
-    nextScene('end');
-  }else if(v==='yellow'){
-    log('安全口令：黄');
-    S.trust=Math.min(100,S.trust+7); S.stress=Math.max(0,S.stress-20); S.control=Math.max(0,S.control-3);
-    nextScene('recover');
-  }else{
-    log('安全口令：绿');
-    S.trust=Math.min(100,S.trust+3);
-    setScene('CHECK-IN · GREEN', '“收到。绿。”\n\n状态确认完成，互动继续。',[
-      {t:'继续',trust:2,control:2,stress:0,next:'dynamic'}
-    ]);
-  }
-  update();
+async function sendMessage(){
+  if(S.busy)return;
+  const text=input.value.trim();if(!text)return;
+  input.value='';S.history.push({role:'user',content:text});addBubble('user',text);persist();
+  await requestAgent(text,'user');
 }
-function restart(){
-  document.getElementById('game').classList.add('hidden');
-  document.getElementById('setup').classList.remove('hidden');
+
+async function sendSafeword(v){
+  const map={green:'绿。状态确认后继续。',yellow:'黄。降低强度，先确认我的状态，再继续。',red:'红。立即停止当前角色互动并解除角色。'};
+  if(S.busy)return;input.value='';
+  S.history.push({role:'user',content:map[v]});addBubble('user',map[v]);persist();
+  await requestAgent(map[v],'safeword_'+v);
 }
+
+async function requestAgent(text,eventType){
+  S.busy=true;thinking.classList.remove('hidden');
+  try{
+    const payload={profile:S.profile,state:S.state,history:S.history.slice(-24),memory:S.memory||'',eventType};
+    const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const j=await r.json();
+    if(!r.ok)throw new Error(j.error||('HTTP '+r.status));
+    const reply=(j.reply||'').trim()||'……';
+    S.state.trust=clamp(S.state.trust+(j.state_delta?.trust||0));
+    S.state.control=clamp(S.state.control+(j.state_delta?.control||0));
+    S.state.stress=clamp(S.state.stress+(j.state_delta?.stress||0));
+    if(j.memory)S.memory=String(j.memory).slice(0,1800);
+    S.history.push({role:'assistant',content:reply});
+    addBubble('assistant',reply);renderState();persist();
+  }catch(e){
+    addBubble('assistant','[连接错误] '+e.message+'\n\n本轮没有写入角色回应。');
+  }finally{S.busy=false;thinking.classList.add('hidden');}
+}
+
+function clearMemory(){
+  S.history=[];S.memory='';S.state={trust:50,control:35,stress:18};persist();renderAll();
+}
+restore();
 </script>
 </body>
 </html>
