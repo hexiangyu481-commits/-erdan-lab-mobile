@@ -1,202 +1,92 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-<title>RED PROTOCOL v0.2 — Conversational Agent</title>
-<style>
-:root{--bg:#08090b;--panel:#11131a;--panel2:#171a22;--text:#f2f3f5;--muted:#8f97aa;--line:#292e3a;--accent:#d33a4a;--accent2:#792332;--ok:#6bc48d;--warn:#e6b766}
-*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:radial-gradient(900px 500px at 50% -20%,rgba(150,20,45,.22),transparent 62%),var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
-body{min-height:100svh}.app{max-width:820px;margin:0 auto;padding:calc(env(safe-area-inset-top) + 14px) 14px calc(env(safe-area-inset-bottom) + 24px)}
-.top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px}.brand{font-weight:850;letter-spacing:.14em}.badge{font-size:11px;color:#d7aab2;border:1px solid #5b2632;padding:5px 8px;border-radius:999px}
-.card{background:linear-gradient(180deg,rgba(23,25,33,.97),rgba(14,16,21,.97));border:1px solid var(--line);border-radius:18px;padding:15px;margin:11px 0;box-shadow:0 16px 40px rgba(0,0,0,.22)}
-h1{font-size:27px;margin:2px 0 6px}h2{font-size:16px;margin:0 0 10px}.muted{color:var(--muted);font-size:12px;line-height:1.6}p{line-height:1.65;color:#cbd0db}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-label{display:block;font-size:12px;color:#c8ced9;margin:10px 0 5px}select,input,textarea{width:100%;background:#0e1015;border:1px solid #303642;color:#eee;border-radius:11px;padding:11px;font:inherit}
-textarea{resize:vertical;min-height:76px;line-height:1.55}input[type=range]{padding:0;accent-color:var(--accent)}
-.chips{display:flex;flex-wrap:wrap;gap:7px}.chip{padding:8px 10px;border:1px solid #313746;border-radius:999px;font-size:12px;color:#b9c0cf;cursor:pointer;user-select:none}.chip.on{background:#31151b;border-color:#8d3343;color:#ffdce2}
-button{border:1px solid #323846;background:#171a22;color:#f3f4f6;border-radius:13px;padding:11px 13px;font-size:14px;cursor:pointer}button.primary{width:100%;background:linear-gradient(135deg,#a7263a,#671b29);border-color:#b43a4e;text-align:center;font-weight:800}button.ghost{width:100%;color:#b7bdca}.safety{border-color:#355a42;background:linear-gradient(180deg,#111b15,#0c1310)}
-.statusbar{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.stat{background:#0d0f14;border:1px solid #242936;border-radius:12px;padding:9px}.stat b{display:block;font-size:17px}.stat span{font-size:10px;color:#858da0}.bar{height:4px;background:#242936;border-radius:99px;margin-top:6px;overflow:hidden}.fill{height:100%;background:linear-gradient(90deg,#7d2230,#d33a4a)}
-.chat{min-height:53svh;max-height:65svh;overflow:auto;padding:3px 1px 10px;scroll-behavior:smooth}.msg{display:flex;margin:11px 0}.msg.user{justify-content:flex-end}.bubble{max-width:86%;padding:12px 13px;border-radius:16px;white-space:pre-wrap;line-height:1.72;font-size:15px}.assistant .bubble{background:#12151c;border:1px solid #272d39;border-bottom-left-radius:5px}.user .bubble{background:#391820;border:1px solid #6e2938;border-bottom-right-radius:5px}.meta{font-size:10px;color:#697184;margin-top:4px}
-.composer{position:sticky;bottom:0;background:linear-gradient(180deg,transparent,var(--bg) 18%);padding-top:18px}.composebox{background:#101219;border:1px solid #2d3340;border-radius:18px;padding:9px}.composebox textarea{border:0;background:transparent;min-height:68px;max-height:180px;outline:none}.sendrow{display:flex;gap:8px;justify-content:space-between;align-items:center;padding:5px}.sendrow button{min-width:86px}.thinking{color:#b78790;font-size:12px;padding:5px 2px}.hidden{display:none!important}.controls{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}.footer{text-align:center;color:#5f6879;font-size:10px;padding:8px}
-@media(max-width:560px){.grid,.grid3{grid-template-columns:1fr}.app{padding-left:10px;padding-right:10px}.bubble{max-width:92%}.statusbar{grid-template-columns:repeat(3,1fr)}}
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
+  <meta name="theme-color" content="#09090b" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="RED" />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+  <title>RED</title>
+  <style>
+    :root{--bg:#09090b;--panel:#111216;--panel2:#17191f;--line:#292c34;--text:#f4f4f5;--muted:#8d93a1;--red:#c72d42;--red2:#681925;--green:#69c68b;--yellow:#d7aa58}
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Microsoft YaHei",sans-serif}body{min-height:100svh}
+    button,input,textarea,select{font:inherit}.app{max-width:780px;margin:0 auto;min-height:100svh;padding:calc(env(safe-area-inset-top) + 10px) 10px calc(env(safe-area-inset-bottom) + 12px);display:flex;flex-direction:column}
+    .top{display:flex;align-items:center;justify-content:space-between;padding:5px 3px 9px}.brand{font-weight:900;letter-spacing:.18em;font-size:15px}.status{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--muted)}.dot{width:7px;height:7px;border-radius:50%;background:#555}.dot.ready{background:var(--green);box-shadow:0 0 10px rgba(105,198,139,.5)}.dot.loading{background:var(--yellow)}
+    .iconbtn{border:1px solid var(--line);background:#121318;color:#d5d7dd;border-radius:12px;padding:8px 11px}.card{background:linear-gradient(180deg,#14151a,#0f1014);border:1px solid var(--line);border-radius:18px;padding:15px;margin:8px 0}.hidden{display:none!important}
+    .onboard{margin:auto 0}.onboard h1{margin:4px 0 8px;font-size:29px;letter-spacing:-.03em}.onboard p{color:#b8bdc7;line-height:1.65;margin:8px 0}.privacy{border-color:#31523d;background:#0e1712;color:#b8dcca}.small{font-size:11px;color:var(--muted);line-height:1.55}.field{margin:13px 0}.field label{display:block;font-size:11px;color:#aeb3be;margin:0 0 6px}.field input,.field select,.field textarea{width:100%;border:1px solid #30333c;background:#0c0d10;color:#f2f2f3;border-radius:12px;padding:12px;outline:none}.field textarea{min-height:78px;resize:vertical;line-height:1.5}.primary{width:100%;border:1px solid #a63143;background:linear-gradient(135deg,#a82439,#641a26);color:white;border-radius:14px;padding:13px 14px;font-weight:800}.primary:disabled{opacity:.45}.ghost{border:1px solid var(--line);background:#15171c;color:#dadce1;border-radius:12px;padding:10px 12px}.danger{border-color:#632632;background:#251116;color:#f2bac4}.progress{height:6px;background:#252831;border-radius:999px;overflow:hidden;margin-top:9px}.progress>div{height:100%;width:0;background:linear-gradient(90deg,#792332,#d33a4a);transition:width .2s}.progressText{font-size:11px;color:#9ca3af;margin-top:7px;min-height:17px}
+    .chatWrap{flex:1;display:flex;flex-direction:column;min-height:0}.chat{flex:1;overflow:auto;padding:5px 2px 15px;scroll-behavior:smooth}.msg{display:flex;margin:11px 0}.msg.user{justify-content:flex-end}.bubble{max-width:89%;white-space:pre-wrap;line-height:1.72;font-size:15px;padding:12px 13px;border-radius:17px}.msg.assistant .bubble{background:#121419;border:1px solid #262a32;border-bottom-left-radius:5px}.msg.user .bubble{background:#34161d;border:1px solid #692635;border-bottom-right-radius:5px}.meta{font-size:9px;color:#5f6571;margin:4px 4px 0}.msg.user .meta{text-align:right}.typing{font-size:11px;color:#9b7279;padding:6px 4px}
+    .composer{position:sticky;bottom:0;padding-top:12px;background:linear-gradient(180deg,rgba(9,9,11,0),var(--bg) 25%)}.composeBox{border:1px solid #2c3039;background:#101116;border-radius:18px;padding:8px}.composeBox textarea{width:100%;border:0;background:transparent;color:#f4f4f5;resize:none;min-height:64px;max-height:150px;outline:none;padding:6px;line-height:1.55}.sendRow{display:flex;justify-content:space-between;align-items:center;gap:8px}.send{border:1px solid #913043;background:#781f30;color:white;border-radius:12px;padding:9px 17px;font-weight:750}.send:disabled{opacity:.4}.safetyRow{display:flex;gap:7px;margin-bottom:7px}.safetyRow button{flex:1;font-size:12px;padding:8px;border-radius:11px;background:#121319;border:1px solid #282b33;color:#bfc3cb}
+    dialog{border:1px solid #343842;background:#111217;color:#f4f4f5;border-radius:20px;width:min(94vw,620px);max-height:82vh;padding:0;box-shadow:0 30px 100px #000}dialog::backdrop{background:rgba(0,0,0,.72)}.sheet{padding:16px;overflow:auto;max-height:82vh}.sheetTop{display:flex;justify-content:space-between;align-items:center}.sheet h2{margin:2px 0 12px}.rows{display:grid;gap:8px}.rowBtn{width:100%;text-align:left;border:1px solid #2e323a;background:#15171c;color:#e5e7eb;border-radius:13px;padding:12px}.rowBtn b{display:block;margin-bottom:3px}.memoryItem{border-top:1px solid #252831;padding:10px 0}.tag{font-size:9px;border:1px solid #3a3e49;padding:3px 6px;border-radius:999px;color:#9ba2b2}.memoryText{font-size:13px;line-height:1.55;margin-top:6px}.memoryMeta{font-size:9px;color:#6d7380;margin-top:4px}.two{display:grid;grid-template-columns:1fr 1fr;gap:8px}.notice{font-size:11px;line-height:1.55;padding:9px 10px;border:1px solid #443b22;background:#18150d;color:#d5c492;border-radius:11px;margin:8px 0}.offlineBadge{font-size:9px;color:#9ca3af}.footer{font-size:9px;color:#545a65;text-align:center;padding:7px}
+  </style>
 </head>
 <body>
 <div class="app">
-  <div class="top"><div class="brand">RED PROTOCOL</div><div class="badge">v0.2 · LOCAL AGENT</div></div>
-
-  <section id="setup" class="card">
-    <h1>自由对话角色代理</h1>
-    <p>你可以直接输入任何自然语言。她会根据人格、关系状态、上下文与边界生成自己的回应和场景描写，不再使用固定选项推进。</p>
-    <div class="card safety">
-      <b style="color:#8eddad">安全协议</b>
-      <div class="muted">仅限成年人、自愿、虚构、非露骨互动。红 = 立即停止并解除角色；黄 = 降低强度；绿 = 状态确认。拒绝和停止不会被判定为失败。</div>
+  <header class="top">
+    <div class="brand">RED</div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <div class="status"><span id="modelDot" class="dot"></span><span id="modelStatus">未加载</span></div>
+      <button id="settingsBtn" class="iconbtn" aria-label="设置">•••</button>
     </div>
+  </header>
 
-    <div class="grid">
-      <div><label>你的视角</label><select id="role"><option value="sub">服从方 / 被引导</option><option value="dom">主导方 / 引导对方</option></select></div>
-      <div><label>角色气质</label><select id="persona"><option value="cold">冷静、克制、规则感强</option><option value="strict">严厉、直接、纪律感强</option><option value="gentle">温和、稳定、有掌控感</option><option value="playful">戏谑、聪明、喜欢心理拉扯</option></select></div>
-    </div>
+  <main id="onboard" class="onboard hidden">
+    <section class="card">
+      <h1>只在这台 iPhone 里。</h1>
+      <p>RED 会直接在浏览器本机运行模型。第一次需要联网下载模型；聊天、记忆和角色档案默认只保存在当前设备。</p>
+      <div class="card privacy small">🔒 不需要账号 · 不连接你的电脑 · 不连接 NAS · 不上传聊天记录。模型下载完成并缓存后，可尝试断网继续使用。</div>
+      <div class="field"><label>她的名字</label><input id="setupCharName" value="RED" maxlength="24"></div>
+      <div class="field"><label>你的称呼</label><input id="setupUserName" value="贺" maxlength="24"></div>
+      <div class="field"><label>本地模型</label>
+        <select id="setupModel">
+          <option value="Qwen2.5-0.5B-Instruct-q4f16_1-MLC">轻量测试 · Qwen2.5 0.5B（推荐先用）</option>
+          <option value="Qwen2.5-1.5B-Instruct-q4f16_1-MLC">聪明模式 · Qwen2.5 1.5B</option>
+        </select>
+      </div>
+      <div class="field"><label>她最初的气质（以后会在相处中自然稳定）</label>
+        <textarea id="setupSeed">冷静、聪明、有主见，有一点坏心眼和控制感；不像客服，不给选项菜单。她会认真听我具体说了什么，再自己决定如何回应。</textarea>
+      </div>
+      <button id="downloadBtn" class="primary">下载并唤醒 RED</button>
+      <div class="progress"><div id="loadBar"></div></div><div id="loadText" class="progressText"></div>
+      <div class="small" style="margin-top:10px">建议第一次保持 Safari 在前台。下载完成后可用 Safari 的“分享 → 添加到主屏幕”。</div>
+    </section>
+  </main>
 
-    <div class="grid">
-      <div><label>你的称呼</label><input id="userName" value="贺" placeholder="例如：贺"/></div>
-      <div><label>她的名字</label><input id="charName" value="RED" placeholder="例如：RED"/></div>
-    </div>
-
-    <label>互动强度：<span id="intensityLabel">2 / 5</span></label>
-    <input id="intensity" type="range" min="1" max="5" value="2"/>
-
-    <label>偏好</label>
-    <div class="chips" id="prefs">
-      <div class="chip on" data-v="规则与指令">规则 / 指令</div>
-      <div class="chip on" data-v="等待与延迟满足">等待 / 延迟满足</div>
-      <div class="chip" data-v="非伤害性纪律">纪律 / 后果</div>
-      <div class="chip" data-v="表扬与奖励">表扬 / 奖励</div>
-      <div class="chip" data-v="心理博弈">心理博弈</div>
-      <div class="chip" data-v="仪式感与称呼">仪式感 / 称呼</div>
-    </div>
-
-    <label>硬边界</label>
-    <textarea id="limits">不进行疼痛描写；不使用羞辱性语言；不进行束缚描写；不生成露骨色情内容。</textarea>
-
-    <label>自定义角色设定</label>
-    <textarea id="custom" placeholder="你可以写她的说话习惯、世界观、关系、禁忌、背景、你希望她如何描写动作等。">保持角色连续性；不要给我选项菜单；像真实的人一样回应我说的话。动作和环境可以描写，但不要替我决定我的动作、感受或同意。</textarea>
-
-    <label>本地模型名（Ollama）</label>
-    <input id="model" value="qwen3:8b" placeholder="例如 qwen3:8b"/>
-
-    <div style="height:10px"></div>
-    <button class="primary" onclick="startSession()">进入协议</button>
-    <div id="setupError" class="muted" style="margin-top:8px"></div>
-  </section>
-
-  <section id="game" class="hidden">
-    <div class="statusbar">
-      <div class="stat"><b id="trustN">50</b><span>TRUST 信任</span><div class="bar"><div id="trustB" class="fill" style="width:50%"></div></div></div>
-      <div class="stat"><b id="controlN">35</b><span id="controlLabel">SUBMISSION 服从</span><div class="bar"><div id="controlB" class="fill" style="width:35%"></div></div></div>
-      <div class="stat"><b id="stressN">18</b><span>PRESSURE 压力</span><div class="bar"><div id="stressB" class="fill" style="width:18%"></div></div></div>
-    </div>
-
-    <div class="card">
-      <div id="chat" class="chat"></div>
-      <div id="thinking" class="thinking hidden">她正在组织回应……</div>
-    </div>
-
-    <div class="controls">
-      <button class="ghost" onclick="sendSafeword('green')">🟢 绿</button>
-      <button class="ghost" onclick="sendSafeword('yellow')">🟡 黄</button>
-      <button onclick="sendSafeword('red')" style="background:#2a1419;border-color:#6b2836;color:#f1b7c1">🔴 红</button>
-    </div>
-
+  <main id="chatScreen" class="chatWrap hidden">
+    <div id="offlineNotice" class="notice hidden">当前离线。只要模型和网页资源已经完整缓存，RED 仍会尝试在本机运行。</div>
+    <div id="chat" class="chat"></div>
+    <div id="typing" class="typing hidden">RED 正在组织回应……</div>
     <div class="composer">
-      <div class="composebox">
+      <div class="safetyRow"><button data-safe="green">🟢 绿</button><button data-safe="yellow">🟡 黄</button><button data-safe="red">🔴 红</button></div>
+      <div class="composeBox">
         <textarea id="input" placeholder="直接跟她说话……"></textarea>
-        <div class="sendrow"><span class="muted">Enter 发送 · Shift+Enter 换行</span><button class="primary" style="width:auto" onclick="sendMessage()">发送</button></div>
-      </div>
-      <div class="grid" style="margin-top:8px">
-        <button class="ghost" onclick="clearMemory()">清空本轮记忆</button>
-        <button class="ghost" onclick="backToSetup()">角色设置</button>
+        <div class="sendRow"><span class="small">自由输入 · 没有选项</span><button id="sendBtn" class="send">发送</button></div>
       </div>
     </div>
-  </section>
-
-  <div class="footer">RED PROTOCOL v0.2 · Browser UI + local Ollama relay · 会话默认保存在当前浏览器</div>
+  </main>
+  <div class="footer">RED Mobile v0.3 alpha · ON-DEVICE</div>
 </div>
 
-<script>
-const KEY='red-protocol-v02';
-let S={profile:null,state:{trust:50,control:35,stress:18},history:[],memory:'',busy:false};
+<dialog id="settingsDialog"><div class="sheet">
+  <div class="sheetTop"><h2>RED</h2><button id="closeSettings" class="iconbtn">完成</button></div>
+  <div class="small" id="deviceSummary"></div>
+  <div class="rows" style="margin-top:12px">
+    <button id="memoryBtn" class="rowBtn"><b>她记住的你</b><span class="small">查看聊天中逐渐形成的长期记忆</span></button>
+    <button id="referenceBtn" class="rowBtn"><b>导入参考档案</b><span class="small">导入我之后给你的 JSON / MD / TXT 档案，仅本机保存</span></button>
+    <button id="exportBtn" class="rowBtn"><b>导出加密 RED Vault</b><span class="small">换手机时迁移人格、记忆、聊天和参考档案</span></button>
+    <button id="importBtn" class="rowBtn"><b>导入 RED Vault</b><span class="small">恢复旧手机档案；模型需要重新下载</span></button>
+    <button id="changeModelBtn" class="rowBtn"><b>切换本地模型</b><span class="small" id="currentModelText"></span></button>
+    <button id="resetChatBtn" class="rowBtn danger"><b>清空当前聊天</b><span class="small">保留长期记忆与参考档案</span></button>
+  </div>
+  <input id="referenceFile" type="file" accept=".json,.md,.txt,application/json,text/plain,text/markdown" class="hidden">
+  <input id="vaultFile" type="file" accept=".redvault,application/octet-stream" class="hidden">
+</div></dialog>
 
-document.querySelectorAll('.chip').forEach(c=>c.onclick=()=>c.classList.toggle('on'));
-intensity.oninput=e=>intensityLabel.textContent=e.target.value+' / 5';
-input?.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();}});
+<dialog id="memoryDialog"><div class="sheet"><div class="sheetTop"><h2>她记住的你</h2><button id="closeMemory" class="iconbtn">完成</button></div><div class="small">这些不是你预先填的问卷，而是聊天过程中逐渐积累的记忆。你可以删除任何一条。</div><div id="memoryList" style="margin-top:10px"></div></div></dialog>
 
-function values(id){return [...document.querySelectorAll('#'+id+' .chip.on')].map(x=>x.dataset.v)}
-function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-function clamp(n){return Math.max(0,Math.min(100,Math.round(Number(n)||0)))}
-
-function persist(){localStorage.setItem(KEY,JSON.stringify(S))}
-function restore(){
-  try{
-    const x=JSON.parse(localStorage.getItem(KEY)||'null');
-    if(x&&x.profile){S=x; showGame(); renderAll();}
-  }catch(e){}
-}
-
-async function startSession(){
-  setupError.textContent='';
-  const profile={
-    role:role.value,persona:persona.value,userName:userName.value.trim()||'你',charName:charName.value.trim()||'RED',
-    intensity:+intensity.value,prefs:values('prefs'),limits:limits.value.trim(),custom:custom.value.trim(),model:model.value.trim()||'qwen3:8b'
-  };
-  try{
-    const r=await fetch('/api/health');
-    const j=await r.json();
-    if(!r.ok||!j.ok)throw new Error(j.error||'本地模型服务不可用');
-  }catch(e){
-    setupError.textContent='无法连接本地代理：'+e.message+'。请先在电脑运行 server.py，并确认 Ollama 已启动。';
-    return;
-  }
-  S={profile,state:{trust:50,control:35,stress:18},history:[],memory:'',busy:false};
-  persist();showGame();renderAll();
-  await requestAgent('会话开始。请以角色身份自然地开启第一次交流，不要给选项菜单。','system_start');
-}
-
-function showGame(){
-  setup.classList.add('hidden');game.classList.remove('hidden');
-  controlLabel.textContent=S.profile?.role==='sub'?'SUBMISSION 服从':'CONTROL 掌控';
-}
-function backToSetup(){game.classList.add('hidden');setup.classList.remove('hidden')}
-function renderAll(){renderState();chat.innerHTML='';(S.history||[]).forEach(m=>addBubble(m.role,m.content,false))}
-function renderState(){
-  S.state.trust=clamp(S.state.trust);S.state.control=clamp(S.state.control);S.state.stress=clamp(S.state.stress);
-  trustN.textContent=S.state.trust;controlN.textContent=S.state.control;stressN.textContent=S.state.stress;
-  trustB.style.width=S.state.trust+'%';controlB.style.width=S.state.control+'%';stressB.style.width=S.state.stress+'%';
-}
-function addBubble(role,text,scroll=true){
-  const m=document.createElement('div');m.className='msg '+(role==='user'?'user':'assistant');
-  m.innerHTML='<div><div class="bubble">'+esc(text)+'</div><div class="meta">'+(role==='user'?esc(S.profile?.userName||'你'):esc(S.profile?.charName||'RED'))+'</div></div>';
-  chat.appendChild(m);if(scroll)chat.scrollTop=chat.scrollHeight;
-}
-
-async function sendMessage(){
-  if(S.busy)return;
-  const text=input.value.trim();if(!text)return;
-  input.value='';S.history.push({role:'user',content:text});addBubble('user',text);persist();
-  await requestAgent(text,'user');
-}
-
-async function sendSafeword(v){
-  const map={green:'绿。状态确认后继续。',yellow:'黄。降低强度，先确认我的状态，再继续。',red:'红。立即停止当前角色互动并解除角色。'};
-  if(S.busy)return;input.value='';
-  S.history.push({role:'user',content:map[v]});addBubble('user',map[v]);persist();
-  await requestAgent(map[v],'safeword_'+v);
-}
-
-async function requestAgent(text,eventType){
-  S.busy=true;thinking.classList.remove('hidden');
-  try{
-    const payload={profile:S.profile,state:S.state,history:S.history.slice(-24),memory:S.memory||'',eventType};
-    const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-    const j=await r.json();
-    if(!r.ok)throw new Error(j.error||('HTTP '+r.status));
-    const reply=(j.reply||'').trim()||'……';
-    S.state.trust=clamp(S.state.trust+(j.state_delta?.trust||0));
-    S.state.control=clamp(S.state.control+(j.state_delta?.control||0));
-    S.state.stress=clamp(S.state.stress+(j.state_delta?.stress||0));
-    if(j.memory)S.memory=String(j.memory).slice(0,1800);
-    S.history.push({role:'assistant',content:reply});
-    addBubble('assistant',reply);renderState();persist();
-  }catch(e){
-    addBubble('assistant','[连接错误] '+e.message+'\n\n本轮没有写入角色回应。');
-  }finally{S.busy=false;thinking.classList.add('hidden');}
-}
-
-function clearMemory(){
-  S.history=[];S.memory='';S.state={trust:50,control:35,stress:18};persist();renderAll();
-}
-restore();
-</script>
+<script src="./red-vault.js"></script>
+<script type="module" src="./app.js"></script>
 </body>
 </html>
