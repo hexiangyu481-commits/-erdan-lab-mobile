@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
+  <meta name="theme-color" content="#09090b" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="RED" />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+  <title>RED</title>
+  <style>
+    :root{--bg:#09090b;--panel:#111216;--panel2:#17191f;--line:#292c34;--text:#f4f4f5;--muted:#8d93a1;--red:#c72d42;--red2:#681925;--green:#69c68b;--yellow:#d7aa58}
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Microsoft YaHei",sans-serif}body{min-height:100svh}
+    button,input,textarea,select{font:inherit}.app{max-width:780px;margin:0 auto;min-height:100svh;padding:calc(env(safe-area-inset-top) + 10px) 10px calc(env(safe-area-inset-bottom) + 12px);display:flex;flex-direction:column}
+    .top{display:flex;align-items:center;justify-content:space-between;padding:5px 3px 9px}.brand{font-weight:900;letter-spacing:.18em;font-size:15px}.status{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--muted)}.dot{width:7px;height:7px;border-radius:50%;background:#555}.dot.ready{background:var(--green);box-shadow:0 0 10px rgba(105,198,139,.5)}.dot.loading{background:var(--yellow)}
+    .iconbtn{border:1px solid var(--line);background:#121318;color:#d5d7dd;border-radius:12px;padding:8px 11px}.card{background:linear-gradient(180deg,#14151a,#0f1014);border:1px solid var(--line);border-radius:18px;padding:15px;margin:8px 0}.hidden{display:none!important}
+    .onboard{margin:auto 0}.onboard h1{margin:4px 0 8px;font-size:29px;letter-spacing:-.03em}.onboard p{color:#b8bdc7;line-height:1.65;margin:8px 0}.privacy{border-color:#31523d;background:#0e1712;color:#b8dcca}.small{font-size:11px;color:var(--muted);line-height:1.55}.field{margin:13px 0}.field label{display:block;font-size:11px;color:#aeb3be;margin:0 0 6px}.field input,.field select,.field textarea{width:100%;border:1px solid #30333c;background:#0c0d10;color:#f2f2f3;border-radius:12px;padding:12px;outline:none}.field textarea{min-height:78px;resize:vertical;line-height:1.5}.primary{width:100%;border:1px solid #a63143;background:linear-gradient(135deg,#a82439,#641a26);color:white;border-radius:14px;padding:13px 14px;font-weight:800}.primary:disabled{opacity:.45}.ghost{border:1px solid var(--line);background:#15171c;color:#dadce1;border-radius:12px;padding:10px 12px}.danger{border-color:#632632;background:#251116;color:#f2bac4}.progress{height:6px;background:#252831;border-radius:999px;overflow:hidden;margin-top:9px}.progress>div{height:100%;width:0;background:linear-gradient(90deg,#792332,#d33a4a);transition:width .2s}.progressText{font-size:11px;color:#9ca3af;margin-top:7px;min-height:17px}
+    .chatWrap{flex:1;display:flex;flex-direction:column;min-height:0}.chat{flex:1;overflow:auto;padding:5px 2px 15px;scroll-behavior:smooth}.msg{display:flex;margin:11px 0}.msg.user{justify-content:flex-end}.bubble{max-width:89%;white-space:pre-wrap;line-height:1.72;font-size:15px;padding:12px 13px;border-radius:17px}.msg.assistant .bubble{background:#121419;border:1px solid #262a32;border-bottom-left-radius:5px}.msg.user .bubble{background:#34161d;border:1px solid #692635;border-bottom-right-radius:5px}.meta{font-size:9px;color:#5f6571;margin:4px 4px 0}.msg.user .meta{text-align:right}.typing{font-size:11px;color:#9b7279;padding:6px 4px}
+    .composer{position:sticky;bottom:0;padding-top:12px;background:linear-gradient(180deg,rgba(9,9,11,0),var(--bg) 25%)}.composeBox{border:1px solid #2c3039;background:#101116;border-radius:18px;padding:8px}.composeBox textarea{width:100%;border:0;background:transparent;color:#f4f4f5;resize:none;min-height:64px;max-height:150px;outline:none;padding:6px;line-height:1.55}.sendRow{display:flex;justify-content:space-between;align-items:center;gap:8px}.send{border:1px solid #913043;background:#781f30;color:white;border-radius:12px;padding:9px 17px;font-weight:750}.send:disabled{opacity:.4}.safetyRow{display:flex;gap:7px;margin-bottom:7px}.safetyRow button{flex:1;font-size:12px;padding:8px;border-radius:11px;background:#121319;border:1px solid #282b33;color:#bfc3cb}
+    dialog{border:1px solid #343842;background:#111217;color:#f4f4f5;border-radius:20px;width:min(94vw,620px);max-height:82vh;padding:0;box-shadow:0 30px 100px #000}dialog::backdrop{background:rgba(0,0,0,.72)}.sheet{padding:16px;overflow:auto;max-height:82vh}.sheetTop{display:flex;justify-content:space-between;align-items:center}.sheet h2{margin:2px 0 12px}.rows{display:grid;gap:8px}.rowBtn{width:100%;text-align:left;border:1px solid #2e323a;background:#15171c;color:#e5e7eb;border-radius:13px;padding:12px}.rowBtn b{display:block;margin-bottom:3px}.memoryItem{border-top:1px solid #252831;padding:10px 0}.tag{font-size:9px;border:1px solid #3a3e49;padding:3px 6px;border-radius:999px;color:#9ba2b2}.memoryText{font-size:13px;line-height:1.55;margin-top:6px}.memoryMeta{font-size:9px;color:#6d7380;margin-top:4px}.two{display:grid;grid-template-columns:1fr 1fr;gap:8px}.notice{font-size:11px;line-height:1.55;padding:9px 10px;border:1px solid #443b22;background:#18150d;color:#d5c492;border-radius:11px;margin:8px 0}.offlineBadge{font-size:9px;color:#9ca3af}.footer{font-size:9px;color:#545a65;text-align:center;padding:7px}
+  </style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand">RED</div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <div class="status"><span id="modelDot" class="dot"></span><span id="modelStatus">未加载</span></div>
+      <button id="settingsBtn" class="iconbtn" aria-label="设置">•••</button>
+    </div>
+  </header>
+
+  <main id="onboard" class="onboard hidden">
+    <section class="card">
+      <h1>只在这台 iPhone 里。</h1>
+      <p>RED 会直接在浏览器本机运行模型。第一次需要联网下载模型；聊天、记忆和角色档案默认只保存在当前设备。</p>
+      <div class="card privacy small">🔒 不需要账号 · 不连接你的电脑 · 不连接 NAS · 不上传聊天记录。模型下载完成并缓存后，可尝试断网继续使用。</div>
+      <div class="field"><label>她的名字</label><input id="setupCharName" value="RED" maxlength="24"></div>
+      <div class="field"><label>你的称呼</label><input id="setupUserName" value="贺" maxlength="24"></div>
+      <div class="field"><label>本地模型</label>
+        <select id="setupModel">
+          <option value="Qwen2.5-0.5B-Instruct-q4f16_1-MLC">轻量测试 · Qwen2.5 0.5B（推荐先用）</option>
+          <option value="Qwen2.5-1.5B-Instruct-q4f16_1-MLC">聪明模式 · Qwen2.5 1.5B</option>
+        </select>
+      </div>
+      <div class="field"><label>她最初的气质（以后会在相处中自然稳定）</label>
+        <textarea id="setupSeed">冷静、聪明、有主见，有一点坏心眼和控制感；不像客服，不给选项菜单。她会认真听我具体说了什么，再自己决定如何回应。</textarea>
+      </div>
+      <button id="downloadBtn" class="primary">下载并唤醒 RED</button>
+      <div class="progress"><div id="loadBar"></div></div><div id="loadText" class="progressText"></div>
+      <div class="small" style="margin-top:10px">建议第一次保持 Safari 在前台。下载完成后可用 Safari 的“分享 → 添加到主屏幕”。</div>
+    </section>
+  </main>
+
+  <main id="chatScreen" class="chatWrap hidden">
+    <div id="offlineNotice" class="notice hidden">当前离线。只要模型和网页资源已经完整缓存，RED 仍会尝试在本机运行。</div>
+    <div id="chat" class="chat"></div>
+    <div id="typing" class="typing hidden">RED 正在组织回应……</div>
+    <div class="composer">
+      <div class="safetyRow"><button data-safe="green">🟢 绿</button><button data-safe="yellow">🟡 黄</button><button data-safe="red">🔴 红</button></div>
+      <div class="composeBox">
+        <textarea id="input" placeholder="直接跟她说话……"></textarea>
+        <div class="sendRow"><span class="small">自由输入 · 没有选项</span><button id="sendBtn" class="send">发送</button></div>
+      </div>
+    </div>
+  </main>
+  <div class="footer">RED Mobile v0.3 alpha · ON-DEVICE</div>
+</div>
+
+<dialog id="settingsDialog"><div class="sheet">
+  <div class="sheetTop"><h2>RED</h2><button id="closeSettings" class="iconbtn">完成</button></div>
+  <div class="small" id="deviceSummary"></div>
+  <div class="rows" style="margin-top:12px">
+    <button id="memoryBtn" class="rowBtn"><b>她记住的你</b><span class="small">查看聊天中逐渐形成的长期记忆</span></button>
+    <button id="referenceBtn" class="rowBtn"><b>导入参考档案</b><span class="small">导入我之后给你的 JSON / MD / TXT 档案，仅本机保存</span></button>
+    <button id="exportBtn" class="rowBtn"><b>导出加密 RED Vault</b><span class="small">换手机时迁移人格、记忆、聊天和参考档案</span></button>
+    <button id="importBtn" class="rowBtn"><b>导入 RED Vault</b><span class="small">恢复旧手机档案；模型需要重新下载</span></button>
+    <button id="changeModelBtn" class="rowBtn"><b>切换本地模型</b><span class="small" id="currentModelText"></span></button>
+    <button id="resetChatBtn" class="rowBtn danger"><b>清空当前聊天</b><span class="small">保留长期记忆与参考档案</span></button>
+  </div>
+  <input id="referenceFile" type="file" accept=".json,.md,.txt,application/json,text/plain,text/markdown" class="hidden">
+  <input id="vaultFile" type="file" accept=".redvault,application/octet-stream" class="hidden">
+</div></dialog>
+
+<dialog id="memoryDialog"><div class="sheet"><div class="sheetTop"><h2>她记住的你</h2><button id="closeMemory" class="iconbtn">完成</button></div><div class="small">这些不是你预先填的问卷，而是聊天过程中逐渐积累的记忆。你可以删除任何一条。</div><div id="memoryList" style="margin-top:10px"></div></div></dialog>
+
+<script src="./red-vault.js"></script>
+<script type="module" src="./app.js"></script>
+</body>
+</html>
