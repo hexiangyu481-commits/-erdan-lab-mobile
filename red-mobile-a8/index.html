@@ -13,12 +13,12 @@
 <header><div class="brand"><b>RED</b> · A8 <span class="pill">OpenRouter</span></div><div class="status"><span id="dot" class="dot"></span><span id="status">启动中</span></div></header>
 <div id="chat"></div>
 <div class="composerWrap"><div class="composer">
-<div id="preview" class="preview"><img id="previewImg"><span id="previewName"></span><button id="removeImg" class="tinyBtn">移除</button></div>
+<div id="preview" class="preview"><div id="previewGrid" class="previewGrid"></div><div class="previewFooter"><span id="previewCount">0 张图片</span><button id="removeImg" class="tinyBtn">全部移除</button></div></div>
 <textarea id="input" enterkeyhint="send" placeholder="和 RED 说点什么……"></textarea>
 <div class="actions"><div class="leftActions"><button id="imageBtn" class="tinyBtn">📷 看图</button><button id="drawBtn" class="tinyBtn">🎨 生图</button><button id="quotaBtn" class="tinyBtn">额度</button><button id="settingsBtn" class="tinyBtn">设定</button></div><button id="sendBtn" class="sendBtn">发送</button></div>
 </div></div>
 </div>
-<input id="fileInput" type="file" accept="image/*">
+<input id="fileInput" type="file" accept="image/*" multiple>
 
 <div id="settingsSheet" class="sheet"><div class="panel">
 <h2>RED A8 设定</h2>
@@ -41,7 +41,7 @@
 <div class="field"><label>滚动摘要（自动维护，可手动修正）</label><textarea id="summary" placeholder="A8 会自动压缩较早对话。"></textarea></div>
 <div class="row"><button id="saveBtn" class="primary">保存设定</button><button id="closeSettings">关闭</button></div>
 <div class="row"><button id="clearChat">新对话（保留记忆）</button><button id="exportBtn">导出聊天</button></div>
-<div class="notice" style="margin-top:12px">换模型测试时，建议先“新对话（保留记忆）”，避免上一颗脑子的跑偏内容继续污染当前上下文。安全：A8 采用 OpenRouter OAuth/PKCE 自动生成专用密钥，密钥只保存在当前浏览器 localStorage，不会进入仓库。</div>
+<div class="notice" style="margin-top:12px">看图支持一次选择多张（最多 6 张），每轮会显示 OpenRouter 返回的真实总输入 token、输出 token 与实际费用。安全：A8 采用 OpenRouter OAuth/PKCE 自动生成专用密钥，密钥只保存在当前浏览器 localStorage，不会进入仓库。</div>
 </div></div>
 
 <div id="quotaSheet" class="sheet"><div class="panel">
