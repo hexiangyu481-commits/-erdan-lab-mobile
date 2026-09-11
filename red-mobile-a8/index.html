@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#09080a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>RED · Companion A8</title>
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+<div id="app">
+<header><div class="brand"><b>RED</b> · A8 <span class="pill">OpenRouter</span></div><div class="status"><span id="dot" class="dot"></span><span id="status">启动中</span></div></header>
+<div id="chat"></div>
+<div class="composerWrap"><div class="composer">
+<div id="preview" class="preview"><img id="previewImg"><span id="previewName"></span><button id="removeImg" class="tinyBtn">移除</button></div>
+<textarea id="input" enterkeyhint="send" placeholder="和 RED 说点什么……"></textarea>
+<div class="actions"><div class="leftActions"><button id="imageBtn" class="tinyBtn">📷 看图</button><button id="drawBtn" class="tinyBtn">🎨 生图</button><button id="quotaBtn" class="tinyBtn">额度</button><button id="settingsBtn" class="tinyBtn">设定</button></div><button id="sendBtn" class="sendBtn">发送</button></div>
+</div></div>
+</div>
+<input id="fileInput" type="file" accept="image/*">
+
+<div id="settingsSheet" class="sheet"><div class="panel">
+<h2>RED A8 设定</h2>
+<div class="sub">A8 已从 Puter 脱离：聊天走 OpenRouter；聊天全文存 IndexedDB；模型只看滚动摘要 + 最近对话。OpenRouter 密钥不会写入 GitHub。</div>
+<div id="connectCard" class="card"></div>
+<div class="row"><button id="connectBtn" class="primary">连接 OpenRouter</button><button id="disconnectBtn">断开</button></div>
+<div class="field"><label>主聊天模型</label><select id="model">
+<option value="cognitivecomputations/dolphin-mistral-24b-venice-edition">Venice Uncensored · 128K · $0.20/$0.90M</option>
+<option value="cognitivecomputations/dolphin-mistral-24b-venice-edition:free">Venice Uncensored FREE · 33K · 限速</option>
+<option value="qwen/qwen3.8-27b">Qwen3.8 27B · 中文/视觉 · $0.15/$2M</option>
+</select></div>
+<div class="field"><label>视觉理解模型</label><select id="visionModel">
+<option value="qwen/qwen3.8-27b">Qwen3.8 27B · 中文视觉</option>
+</select></div>
+<div class="field"><label>生图模型</label><input id="imageModel" value="meta/muse-image"></div>
+<div class="field"><label>OpenRouter 余额基线（USD，用于本机估算）</label><input id="balanceBase" inputmode="decimal" placeholder="5.00"></div>
+<div class="field"><label>长期记忆 / Memory Core</label><textarea id="memory" placeholder="稳定关系、偏好、边界等长期事实。"></textarea></div>
+<div class="field"><label>人格补充</label><textarea id="persona" placeholder="只写 RED 应长期保持的说话方式。"></textarea></div>
+<div class="field"><label>滚动摘要（自动维护，可手动修正）</label><textarea id="summary" placeholder="A8 会自动压缩较早对话。"></textarea></div>
+<div class="row"><button id="saveBtn" class="primary">保存设定</button><button id="closeSettings">关闭</button></div>
+<div class="row"><button id="clearChat">新对话（保留记忆）</button><button id="exportBtn">导出聊天</button></div>
+<div class="notice" style="margin-top:12px">安全：A8 采用 OpenRouter OAuth/PKCE 自动生成专用密钥，密钥只保存在当前浏览器 localStorage，不会进入仓库。你此前发到聊天里的旧密钥仍应在 OpenRouter 后台撤销。</div>
+</div></div>
+
+<div id="quotaSheet" class="sheet"><div class="panel">
+<h2>额度与消耗</h2><div id="quotaBox" class="card">尚未读取。</div>
+<div class="row"><button id="refreshQuota">刷新</button><button id="openCredits">OpenRouter 充值</button></div>
+<div class="row"><button id="closeQuota">关闭</button></div>
+</div></div>
+
+<script src="./core.js"></script>
+<script src="./ui.js"></script>
+</body>
+</html>
