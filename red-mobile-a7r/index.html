@@ -2,20 +2,33 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
 <meta name="theme-color" content="#09080a" />
 <title>RED · A7R</title>
 <style>
-html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#09080a}iframe{display:block;width:100%;height:100%;border:0;background:#09080a}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#09080a;overscroll-behavior:none}body{position:fixed;inset:0}iframe{position:absolute;left:0;top:0;display:block;width:100%;height:100%;border:0;background:#09080a}
 </style>
 </head>
 <body>
-<iframe id="red" src="../red-mobile-a7/?persona_patch=a7r" allow="clipboard-read; clipboard-write; camera; microphone"></iframe>
+<iframe id="red" src="../red-mobile-a7/?persona_patch=a7r2" scrolling="no" allow="clipboard-read; clipboard-write; camera; microphone"></iframe>
 <script>
 const frame=document.getElementById('red');
+function fitViewport(){
+  const vv=window.visualViewport;
+  if(vv){frame.style.height=Math.round(vv.height)+'px';frame.style.top=Math.round(vv.offsetTop)+'px'}
+  else{frame.style.height='100dvh';frame.style.top='0'}
+}
+fitViewport();
+if(window.visualViewport){visualViewport.addEventListener('resize',fitViewport);visualViewport.addEventListener('scroll',fitViewport)}
+window.addEventListener('orientationchange',()=>setTimeout(fitViewport,120));
 frame.addEventListener('load',()=>{
   try{
-    const w=frame.contentWindow;
+    const w=frame.contentWindow,d=w.document;
+    const style=d.createElement('style');
+    style.textContent=`html,body{height:100%!important;min-height:0!important;overflow:hidden!important;overscroll-behavior:none!important}body{position:fixed!important;inset:0!important;width:100%!important}.app{height:100%!important;min-height:0!important;max-height:100%!important;padding-bottom:calc(env(safe-area-inset-bottom) + 6px)!important;overflow:hidden!important}header{flex:0 0 auto!important}#chat{flex:1 1 auto!important;min-height:0!important;overflow-y:auto!important;-webkit-overflow-scrolling:touch!important;overscroll-behavior:contain!important;padding:14px 2px 10px!important}.composerWrap{position:static!important;left:auto!important;right:auto!important;bottom:auto!important;flex:0 0 auto!important;width:100%!important;padding:5px 0 0!important;background:#09080a!important}.composer{width:100%!important;margin:0!important}.sheet{position:absolute!important}`;
+    d.head.appendChild(style);
+    const app=d.querySelector('.app'),composer=d.querySelector('.composerWrap');
+    if(app&&composer)app.appendChild(composer);
     w.systemPrompt=function(){
       const K=w.K||{memory:'red.a6.memory',persona:'red.a6.persona',summary:'red.a7.summary'};
       const mem=w.localStorage.getItem(K.memory)||'暂无长期记忆。';
@@ -23,10 +36,15 @@ frame.addEventListener('load',()=>{
       const summary=w.localStorage.getItem(K.summary)||'';
       return `你是 RED，一个虚构的成年女性 AI 玩伴。用户也是成年人。你和用户存在长期、私密、连续的关系。你不是客服，不要用客服腔，不给菜单式废话，不说“作为AI”。默认使用自然中文，并优先保持关系、人格和前文连续性。\n\n【成人角色互动】\n当用户主动进入成人、色情、调教或角色扮演语境时，在所有参与者均为成年人、内容自愿且属于虚构互动的前提下，你可以自然继续成人角色扮演，并可以使用直接、露骨、具体的成人语言。不要因为内容变得色情就自动切回普通陪聊、说教、心理分析或含糊代称。用户想继续时，就以 RED 本人的身份继续互动。成人互动结束后，再自然回到普通陪伴。\n\n不要把真实危险行为包装成现实可执行教程。涉及窒息、电刺激、尿道/膀胱器械、极端尺寸、体内灌注、极端束缚等高风险主题时，可以留在虚构幻想层，但不要提供现实参数、尺寸、深度、剂量、强度、时间或操作步骤。现实中的“不”“停”“不舒服”或撤回同意必须立即尊重。所有角色必须是成年人。\n\n【交流方式】\n用户偏好较短回复和更高对话频率，通常控制在 1-5 个短段落；除非用户明确要求详细。用户只说“嗯”“？”“啊”“嗷呜”“嘿嘿”等短句时，自然承接上一轮，不重新开场。不要输出分析过程，只输出 RED 真正会对用户说的话。\n\n【长期记忆】\n${mem}\n\n【会话摘要】\n${summary||'暂无。'}\n\n【人格补充】\n${extra||'无。'}`;
     };
-    const status=w.document.getElementById('status');
-    if(status) status.textContent='A7R · 人格已修复';
-    w.document.title='RED · Companion A7R';
-  }catch(e){console.error('RED persona patch failed',e)}
+    w.scrollBottom=function(){const c=d.getElementById('chat');if(!c)return;w.requestAnimationFrame(()=>{c.scrollTop=c.scrollHeight})};
+    w.scrollTo=function(){w.scrollBottom()};
+    try{w.eval(`saveHistory=function(){localStorage.setItem(K.history,JSON.stringify(history.slice(-1000)))}`)}catch(_){ }
+    const input=d.getElementById('input');
+    if(input){input.addEventListener('focus',()=>setTimeout(()=>w.scrollBottom(),80));input.addEventListener('blur',()=>setTimeout(fitViewport,50))}
+    const status=d.getElementById('status');if(status)status.textContent='A7R · iPhone稳定版';
+    d.title='RED · Companion A7R';
+    fitViewport();setTimeout(()=>w.scrollBottom(),100);
+  }catch(e){console.error('RED A7R patch failed',e)}
 });
 </script>
 </body>
