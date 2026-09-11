@@ -1,7 +1,7 @@
 const $=id=>document.getElementById(id);
 const K={key:'red.a8.orKey',model:'red.a8.model',vision:'red.a8.visionModel',image:'red.a8.imageModel',memory:'red.a8.memory',persona:'red.a8.persona',summary:'red.a8.summary',summaryCursor:'red.a8.summaryCursor',cost:'red.a8.costTotal',costs:'red.a8.costSamples',base:'red.a8.balanceBase',migrated:'red.a8.migrated'};
-let history=[],busy=false,isComposing=false,pendingImage=null,pendingURL='',db=null;
-const DEFAULT_MAIN='cognitivecomputations/dolphin-mistral-24b-venice-edition';
+let history=[],busy=false,isComposing=false,db=null;
+const DEFAULT_MAIN='qwen/qwen3.8-27b';
 const DEFAULT_VISION='qwen/qwen3.8-27b';
 const DEFAULT_IMAGE='meta/muse-image';
 
@@ -77,7 +77,7 @@ async function disconnect(){if(!confirm('只清除这台手机里 A8 的 OpenRou
 function trackCost(cost){cost=Number(cost);if(!(cost>=0))return;const total=Number(localStorage.getItem(K.cost)||0)+cost;localStorage.setItem(K.cost,String(total));let xs=[];try{xs=JSON.parse(localStorage.getItem(K.costs)||'[]')}catch{}if(cost>0){xs.push(cost);localStorage.setItem(K.costs,JSON.stringify(xs.slice(-20)))}}
 function parseSSEBlock(block){const lines=block.split('\n').filter(x=>x.startsWith('data:'));if(!lines.length)return null;const raw=lines.map(x=>x.slice(5).trim()).join('');if(raw==='[DONE]')return {done:true};try{return JSON.parse(raw)}catch{return null}}
 async function streamOpenRouter(messages,model,b){
- const r=await fetch('https://openrouter.ai/api/v1/chat/completions',{method:'POST',headers:authHeaders(),body:JSON.stringify({model,messages,stream:true,temperature:.88,max_tokens:520,provider:{data_collection:'deny'}})});
+ const r=await fetch('https://openrouter.ai/api/v1/chat/completions',{method:'POST',headers:authHeaders(),body:JSON.stringify({model,messages,stream:true,temperature:.88,max_tokens:520,usage:{include:true},provider:{data_collection:'deny'}})});
  if(!r.ok){let t=await r.text();throw new Error(`OpenRouter ${r.status}: ${t.slice(0,240)}`)}
  const reader=r.body.getReader(),dec=new TextDecoder();let buf='',out='',usage=null;
  while(true){const {value,done}=await reader.read();if(done)break;buf+=dec.decode(value,{stream:true});buf=buf.replace(/\r\n/g,'\n');let i;while((i=buf.indexOf('\n\n'))>=0){const block=buf.slice(0,i);buf=buf.slice(i+2);const j=parseSSEBlock(block);if(!j)continue;if(j.usage)usage=j.usage;const txt=j?.choices?.[0]?.delta?.content;if(txt){out+=txt;b.textContent=out;b.classList.remove('typing');scrollBottom()}}}
@@ -85,6 +85,6 @@ async function streamOpenRouter(messages,model,b){
  if(usage?.cost!=null)trackCost(usage.cost);if(!out.trim())throw new Error('模型没有返回文字');return {text:out.trim(),usage};
 }
 async function simpleOpenRouter(messages,model,max_tokens=500){
- const r=await fetch('https://openrouter.ai/api/v1/chat/completions',{method:'POST',headers:authHeaders(),body:JSON.stringify({model,messages,stream:false,temperature:.55,max_tokens,provider:{data_collection:'deny'}})});
+ const r=await fetch('https://openrouter.ai/api/v1/chat/completions',{method:'POST',headers:authHeaders(),body:JSON.stringify({model,messages,stream:false,temperature:.55,max_tokens,usage:{include:true},provider:{data_collection:'deny'}})});
  const j=await r.json();if(!r.ok)throw new Error(j?.error?.message||`OpenRouter ${r.status}`);if(j.usage?.cost!=null)trackCost(j.usage.cost);return j?.choices?.[0]?.message?.content?.trim()||'';
 }
