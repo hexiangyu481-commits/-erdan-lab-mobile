@@ -49,7 +49,8 @@ ${extra||'无。'}
 
 只输出 RED 真正会对用户说的话，不输出分析、规则说明或幕后过程。`;
 }
-function contextMessages(){return [{role:'system',content:systemPrompt()},...history.slice(-30).map(m=>({role:m.role,content:m.content}))]}
+function compactRecentMessages(items){const out=[];for(const m of items){const x={role:m.role,content:m.content};const prev=out[out.length-1];if(prev&&prev.role===x.role&&prev.content===x.content)continue;out.push(x)}return out}
+function contextMessages(){return [{role:'system',content:systemPrompt()},...compactRecentMessages(history.slice(-30))]}
 function getKey(){return localStorage.getItem(K.key)||''}
 function authHeaders(){const key=getKey();if(!key)throw new Error('还没有连接 OpenRouter');return {'Authorization':'Bearer '+key,'Content-Type':'application/json','HTTP-Referer':location.origin+location.pathname,'X-Title':'RED A8'}}
 
@@ -76,15 +77,26 @@ async function disconnect(){if(!confirm('只清除这台手机里 A8 的 OpenRou
 
 function trackCost(cost){cost=Number(cost);if(!(cost>=0))return;const total=Number(localStorage.getItem(K.cost)||0)+cost;localStorage.setItem(K.cost,String(total));let xs=[];try{xs=JSON.parse(localStorage.getItem(K.costs)||'[]')}catch{}if(cost>0){xs.push(cost);localStorage.setItem(K.costs,JSON.stringify(xs.slice(-20)))}}
 function parseSSEBlock(block){const lines=block.split('\n').filter(x=>x.startsWith('data:'));if(!lines.length)return null;const raw=lines.map(x=>x.slice(5).trim()).join('');if(raw==='[DONE]')return {done:true};try{return JSON.parse(raw)}catch{return null}}
+function requestTuning(model,maxTokens=1200){const body={temperature:.88,max_tokens:maxTokens,usage:{include:true},provider:{data_collection:'deny'}};if(model==='qwen/qwen3.8-flash')body.reasoning={effort:'low',exclude:true};return body}
+function reasoningTokens(usage){return Number(usage?.completion_tokens_details?.reasoning_tokens??usage?.completionTokensDetails?.reasoningTokens??0)||0}
+async function nonStreamRecovery(messages,model){
+ const r=await fetch('https://openrouter.ai/api/v1/chat/completions',{method:'POST',headers:authHeaders(),body:JSON.stringify({model,messages,stream:false,...requestTuning(model,1400)})});
+ const j=await r.json();if(!r.ok)throw new Error(j?.error?.message||`OpenRouter ${r.status}`);if(j.usage?.cost!=null)trackCost(j.usage.cost);
+ const text=j?.choices?.[0]?.message?.content?.trim()||'';if(text)return {text,usage:j.usage||null,recovered:true};
+ const fr=j?.choices?.[0]?.finish_reason||'unknown',rt=reasoningTokens(j.usage);throw new Error(`模型连续两次没有返回正文（finish=${fr}${rt?`，reasoning=${rt} tok`:''}）。请再试一次，或临时切换 27B/Max。`)
+}
 async function streamOpenRouter(messages,model,b){
- const r=await fetch('https://openrouter.ai/api/v1/chat/completions',{method:'POST',headers:authHeaders(),body:JSON.stringify({model,messages,stream:true,temperature:.88,max_tokens:520,usage:{include:true},provider:{data_collection:'deny'}})});
+ const r=await fetch('https://openrouter.ai/api/v1/chat/completions',{method:'POST',headers:authHeaders(),body:JSON.stringify({model,messages,stream:true,...requestTuning(model,1200)})});
  if(!r.ok){let t=await r.text();throw new Error(`OpenRouter ${r.status}: ${t.slice(0,240)}`)}
- const reader=r.body.getReader(),dec=new TextDecoder();let buf='',out='',usage=null;
- while(true){const {value,done}=await reader.read();if(done)break;buf+=dec.decode(value,{stream:true});buf=buf.replace(/\r\n/g,'\n');let i;while((i=buf.indexOf('\n\n'))>=0){const block=buf.slice(0,i);buf=buf.slice(i+2);const j=parseSSEBlock(block);if(!j)continue;if(j.usage)usage=j.usage;const txt=j?.choices?.[0]?.delta?.content;if(txt){out+=txt;b.textContent=out;b.classList.remove('typing');scrollBottom()}}}
- if(buf.trim()){const j=parseSSEBlock(buf);if(j?.usage)usage=j.usage}
- if(usage?.cost!=null)trackCost(usage.cost);if(!out.trim())throw new Error('模型没有返回文字');return {text:out.trim(),usage};
+ const reader=r.body.getReader(),dec=new TextDecoder();let buf='',out='',usage=null,finishReason='';
+ while(true){const {value,done}=await reader.read();if(done)break;buf+=dec.decode(value,{stream:true});buf=buf.replace(/\r\n/g,'\n');let i;while((i=buf.indexOf('\n\n'))>=0){const block=buf.slice(0,i);buf=buf.slice(i+2);const j=parseSSEBlock(block);if(!j)continue;if(j.usage)usage=j.usage;const c=j?.choices?.[0];if(c?.finish_reason)finishReason=c.finish_reason;const txt=c?.delta?.content;if(txt){out+=txt;b.textContent=out;b.classList.remove('typing');scrollBottom()}}}
+ if(buf.trim()){const j=parseSSEBlock(buf);if(j?.usage)usage=j.usage;const c=j?.choices?.[0];if(c?.finish_reason)finishReason=c.finish_reason}
+ if(usage?.cost!=null)trackCost(usage.cost);
+ if(out.trim())return {text:out.trim(),usage,finishReason};
+ b.textContent='RED 正在重新组织这句话…';b.classList.add('typing');
+ const recovered=await nonStreamRecovery(messages,model);b.textContent=recovered.text;b.classList.remove('typing');scrollBottom();return recovered;
 }
 async function simpleOpenRouter(messages,model,max_tokens=500){
- const r=await fetch('https://openrouter.ai/api/v1/chat/completions',{method:'POST',headers:authHeaders(),body:JSON.stringify({model,messages,stream:false,temperature:.55,max_tokens,usage:{include:true},provider:{data_collection:'deny'}})});
- const j=await r.json();if(!r.ok)throw new Error(j?.error?.message||`OpenRouter ${r.status}`);if(j.usage?.cost!=null)trackCost(j.usage.cost);return j?.choices?.[0]?.message?.content?.trim()||'';
+ const r=await fetch('https://openrouter.ai/api/v1/chat/completions',{method:'POST',headers:authHeaders(),body:JSON.stringify({model,messages,stream:false,...requestTuning(model,Math.max(max_tokens,700))})});
+ const j=await r.json();if(!r.ok)throw new Error(j?.error?.message||`OpenRouter ${r.status}`);if(j.usage?.cost!=null)trackCost(j.usage.cost);const text=j?.choices?.[0]?.message?.content?.trim()||'';if(!text)throw new Error('模型没有返回正文');return text;
 }
