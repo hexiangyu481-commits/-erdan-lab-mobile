@@ -25,10 +25,11 @@
 <div class="sub">A8 已从 Puter 脱离：聊天走 OpenRouter；聊天全文存 IndexedDB；模型只看滚动摘要 + 最近对话。OpenRouter 密钥不会写入 GitHub。</div>
 <div id="connectCard" class="card"></div>
 <div class="row"><button id="connectBtn" class="primary">连接 OpenRouter</button><button id="disconnectBtn">断开</button></div>
-<div class="field"><label>主聊天模型</label><select id="model">
-<option value="cognitivecomputations/dolphin-mistral-24b-venice-edition">Venice Uncensored · 128K · $0.20/$0.90M</option>
-<option value="cognitivecomputations/dolphin-mistral-24b-venice-edition:free">Venice Uncensored FREE · 33K · 限速</option>
-<option value="qwen/qwen3.8-27b">Qwen3.8 27B · 中文/视觉 · $0.15/$2M</option>
+<div class="field"><label>主聊天模型 · RED 脑子测试</label><select id="model">
+<option value="qwen/qwen3.8-max">① Qwen3.8 Max · 中文质量基准 · $2/$6M</option>
+<option value="qwen/qwen3-30b-a3b">② Qwen3 30B A3B · 性价比 · $0.12/$0.50M</option>
+<option value="qwen/qwen3.7-flash">③ Qwen3.7 Flash · 超省钱 · $0.03/$0.13M</option>
+<option value="cognitivecomputations/dolphin-mistral-24b-venice-edition">Venice Uncensored · 成人备用 · $0.20/$0.90M</option>
 </select></div>
 <div class="field"><label>视觉理解模型</label><select id="visionModel">
 <option value="qwen/qwen3.8-27b">Qwen3.8 27B · 中文视觉</option>
@@ -40,7 +41,7 @@
 <div class="field"><label>滚动摘要（自动维护，可手动修正）</label><textarea id="summary" placeholder="A8 会自动压缩较早对话。"></textarea></div>
 <div class="row"><button id="saveBtn" class="primary">保存设定</button><button id="closeSettings">关闭</button></div>
 <div class="row"><button id="clearChat">新对话（保留记忆）</button><button id="exportBtn">导出聊天</button></div>
-<div class="notice" style="margin-top:12px">安全：A8 采用 OpenRouter OAuth/PKCE 自动生成专用密钥，密钥只保存在当前浏览器 localStorage，不会进入仓库。你此前发到聊天里的旧密钥仍应在 OpenRouter 后台撤销。</div>
+<div class="notice" style="margin-top:12px">换模型测试时，建议先“新对话（保留记忆）”，避免上一颗脑子的跑偏内容继续污染当前上下文。安全：A8 采用 OpenRouter OAuth/PKCE 自动生成专用密钥，密钥只保存在当前浏览器 localStorage，不会进入仓库。</div>
 </div></div>
 
 <div id="quotaSheet" class="sheet"><div class="panel">
