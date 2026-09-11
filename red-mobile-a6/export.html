@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<meta name="theme-color" content="#09080a" />
+<title>RED · 档案导出</title>
+<style>
+:root{color-scheme:dark;--bg:#09080a;--panel:#121015;--line:#2b252d;--text:#f5eef2;--muted:#aa9da5;--red:#cf334f;--ok:#7dd8a0}*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC",system-ui,sans-serif}.app{width:min(100%,760px);margin:auto;padding:calc(env(safe-area-inset-top) + 18px) 14px calc(env(safe-area-inset-bottom) + 24px)}h1{font-size:22px;margin:0 0 6px}p{color:var(--muted);line-height:1.65;font-size:13px}.card{margin-top:14px;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:14px}.stats{display:grid;grid-template-columns:1fr 1fr;gap:8px}.stat{background:#0d0c0f;border-radius:12px;padding:10px}.stat b{display:block;font-size:18px}.stat span{font-size:11px;color:var(--muted)}textarea{width:100%;min-height:46svh;margin-top:12px;border:1px solid var(--line);border-radius:14px;background:#0b0a0d;color:var(--text);padding:12px;font:12px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;resize:vertical}.row{display:flex;gap:8px;margin-top:10px}.row button,.back{flex:1;border:0;border-radius:13px;padding:12px;font:inherit;font-weight:700;background:linear-gradient(135deg,#cf334f,#7e1f33);color:white}.row .secondary{background:#1c181e;color:#ddd1d8;border:1px solid var(--line)}.ok{color:var(--ok)}.warn{color:#e5bd70}.tiny{font-size:11px;color:var(--muted);margin-top:10px;line-height:1.55}a{color:#e67b8f}
+</style>
+</head>
+<body>
+<div class="app">
+<h1>RED · 本机档案导出</h1>
+<p>这个页面只读取当前 Safari 在 <b>hexiangyu481-commits.github.io</b> 下保存的 RED 数据，不会自动上传。复制后由你决定是否发给二蛋整理。</p>
+<div class="card">
+  <div class="stats">
+    <div class="stat"><b id="msgCount">0</b><span>聊天消息</span></div>
+    <div class="stat"><b id="memCount">0</b><span>长期记忆行</span></div>
+  </div>
+  <div id="state" class="tiny"></div>
+  <textarea id="out" readonly></textarea>
+  <div class="row"><button id="copy">复制全部给二蛋</button><button id="refresh" class="secondary">重新读取</button></div>
+  <div class="row"><button id="download" class="secondary">下载 JSON 备份</button><button id="clearView" class="secondary">隐藏文本</button></div>
+  <div class="tiny">注意：导出内容可能包含私密/成人聊天。只有你主动复制或发送，它才会离开当前浏览器。</div>
+</div>
+<p><a href="./">← 返回 RED</a></p>
+</div>
+<script>
+const K={history:'red.a6.history',memory:'red.a6.memory',persona:'red.a6.persona',model:'red.a6.model'};
+const $=id=>document.getElementById(id);
+function read(){
+ let history=[];try{history=JSON.parse(localStorage.getItem(K.history)||'[]');if(!Array.isArray(history))history=[]}catch{history=[]}
+ const memory=localStorage.getItem(K.memory)||'';
+ const persona=localStorage.getItem(K.persona)||'';
+ const model=localStorage.getItem(K.model)||'nousresearch/hermes-4-14b';
+ const lines=memory.split('\n').map(x=>x.trim()).filter(Boolean);
+ $('msgCount').textContent=history.length;$('memCount').textContent=lines.length;
+ const transcript=history.map((m,i)=>`[${String(i+1).padStart(3,'0')}] ${m.role==='user'?'用户':'RED'}：${m.content}`).join('\n\n');
+ const packet=[
+   '=== RED ALPHA6 ARCHIVE FOR ERDAN ===',
+   `Exported: ${new Date().toISOString()}`,
+   `Model: ${model}`,
+   `Messages: ${history.length}`,
+   '',
+   '=== CURRENT LONG-TERM MEMORY ===',
+   memory||'(empty)',
+   '',
+   '=== PERSONA OVERRIDE ===',
+   persona||'(empty)',
+   '',
+   '=== CHAT TRANSCRIPT (oldest -> newest) ===',
+   transcript||'(empty)',
+   '',
+   '=== END ==='
+ ].join('\n');
+ $('out').value=packet;
+ $('state').innerHTML=history.length?'<span class="ok">已读取当前 RED 本机档案。</span>':'<span class="warn">没有读到聊天。请确认你是在同一台 Safari、同一个 github.io 域名下使用 RED。</span>';
+ return {version:1,exportedAt:new Date().toISOString(),model,memory,persona,history};
+}
+let data=read();
+$('refresh').onclick=()=>{data=read()};
+$('copy').onclick=async()=>{data=read();try{await navigator.clipboard.writeText($('out').value);$('state').innerHTML='<span class="ok">已复制。回 ChatGPT 直接粘贴给二蛋即可。</span>'}catch{$('out').focus();$('out').select();$('state').innerHTML='<span class="warn">自动复制失败，文本已全选；长按复制即可。</span>'}};
+$('download').onclick=()=>{data=read();const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`RED-alpha6-archive-${new Date().toISOString().slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)};
+$('clearView').onclick=()=>{$('out').value='';$('state').textContent='文本已隐藏；数据没有被删除。点“重新读取”可再次显示。'};
+</script>
+</body>
+</html>
