@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#0b0d10" />
+  <title>RED Alpha5 Safe</title>
+  <style>
+    :root { color-scheme: dark; font-family: -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif; }
+    body { margin:0; background:#0b0d10; color:#f5f7fa; }
+    main { max-width:760px; margin:0 auto; padding:18px 14px 40px; }
+    .card { background:#13171c; border:1px solid #252b33; border-radius:16px; padding:14px; margin:12px 0; }
+    h1 { font-size:22px; margin:0 0 6px; }
+    .muted { color:#9aa5b1; font-size:13px; }
+    .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+    .pill { display:inline-flex; padding:5px 9px; border-radius:999px; background:#20262d; font-size:12px; }
+    .ok { color:#8ee59b; } .warn { color:#ffd37a; } .bad { color:#ff8d8d; }
+    button { border:0; border-radius:12px; padding:11px 14px; background:#e32636; color:white; font-weight:700; }
+    button.secondary { background:#2a313a; }
+    button:disabled { opacity:.45; }
+    textarea { width:100%; min-height:90px; box-sizing:border-box; border-radius:12px; border:1px solid #313944; background:#0d1116; color:white; padding:12px; font:inherit; resize:vertical; }
+    #reply { white-space:pre-wrap; line-height:1.55; min-height:54px; }
+    #log { white-space:pre-wrap; overflow-wrap:anywhere; font:11px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace; max-height:330px; overflow:auto; background:#080a0d; border-radius:12px; padding:10px; }
+    progress { width:100%; height:8px; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>RED alpha5 <span class="muted">Safe Runner</span></h1>
+  <div class="muted">Qwen3-1.7B · WebGPU · local · WebLLM 0.2.82 pinned</div>
+
+  <section class="card">
+    <div class="row">
+      <span id="state" class="pill">BOOT</span>
+      <span id="mode" class="pill">context ?</span>
+      <span id="gpu" class="pill">WebGPU ?</span>
+    </div>
+    <p id="status" class="muted">启动中…</p>
+    <progress id="progress" max="1" value="0"></progress>
+    <div class="row" style="margin-top:10px">
+      <button id="loadBtn">加载 / 修复模型</button>
+      <button id="resetBtn" class="secondary">清空聊天</button>
+      <button id="normalBtn" class="secondary">尝试 1K 模式</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <textarea id="prompt" placeholder="模型就绪后在这里输入…">你好</textarea>
+    <div class="row" style="margin-top:10px">
+      <button id="sendBtn" disabled>发送</button>
+      <button id="stopBtn" class="secondary" disabled>停止</button>
+    </div>
+    <h3>回复</h3>
+    <div id="reply" class="muted">等待模型。</div>
+  </section>
+
+  <section class="card">
+    <div class="row"><strong>诊断日志</strong><span class="muted">刷新后仍保留最近 220 条</span></div>
+    <pre id="log"></pre>
+  </section>
+</main>
+<script type="module" src="./main.js"></script>
+</body>
+</html>
