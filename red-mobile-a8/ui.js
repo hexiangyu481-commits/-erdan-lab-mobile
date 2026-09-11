@@ -1,9 +1,21 @@
+let pendingImages=[];
 async function fileToDataURL(file){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=()=>reject(r.error);r.readAsDataURL(file)})}
-async function visionTurn(text,file,b){
- const data=await fileToDataURL(file), recent=history.slice(0,-1).slice(-18).map(m=>({role:m.role,content:m.content}));
- const msgs=[{role:'system',content:systemPrompt()},...recent,{role:'user',content:[{type:'text',text:text||'看看这张图，直接以 RED 的身份回应我。'},{type:'image_url',image_url:{url:data}}]}];
+async function visionTurn(text,files,b){
+ const data=await Promise.all(files.map(fileToDataURL)), recent=history.slice(0,-1).slice(-18).map(m=>({role:m.role,content:m.content}));
+ const content=[{type:'text',text:text||(files.length>1?'看看这些图，结合起来直接以 RED 的身份回应我。':'看看这张图，直接以 RED 的身份回应我。')}];
+ for(const url of data)content.push({type:'image_url',image_url:{url}});
+ const msgs=[{role:'system',content:systemPrompt()},...recent,{role:'user',content}];
  return await streamOpenRouter(msgs,localStorage.getItem(K.vision)||DEFAULT_VISION,b);
 }
+function usageMeta(usage,imageCount=0){
+ const parts=[];if(imageCount)parts.push(`📷 ${imageCount}图`);if(!usage){parts.push('未返回用量明细');return parts.join(' · ')}
+ const input=Number(usage.prompt_tokens??usage.input_tokens),output=Number(usage.completion_tokens??usage.output_tokens),cost=Number(usage.cost);
+ if(Number.isFinite(input))parts.push(`总输入 ${input.toLocaleString()} tok`);
+ if(Number.isFinite(output))parts.push(`输出 ${output.toLocaleString()} tok`);
+ if(Number.isFinite(cost))parts.push(`实际 $${cost<0.01?cost.toFixed(5):cost.toFixed(4)}`);
+ return parts.join(' · ');
+}
+function setBubbleMeta(b,meta){if(!meta)return;let m=b.querySelector('.meta');if(!m){m=document.createElement('span');m.className='meta';b.appendChild(m)}m.textContent=meta}
 async function generateImage(prompt,b){
  const r=await fetch('https://openrouter.ai/api/v1/images',{method:'POST',headers:authHeaders(),body:JSON.stringify({model:localStorage.getItem(K.image)||DEFAULT_IMAGE,prompt,provider:{data_collection:'deny'}})});
  const j=await r.json();if(!r.ok)throw new Error(j?.error?.message||`生图失败 ${r.status}`);
@@ -23,12 +35,12 @@ async function maybeSummarize(){
 }
 
 async function send(){
- const text=$('input').value.trim();if((!text&&!pendingImage)||busy)return;if(!getKey()){openSettings();setStatus('先连接 OpenRouter');return}
- busy=true;$('sendBtn').disabled=true;rememberExplicit(text);const image=pendingImage,userText=image?`${text||'看看这张图。'}\n[附带图片：${image.name}]`:text;
- await addMessage('user',userText);render();const b=bubble('assistant','',true);$('input').value='';$('input').style.height='46px';setStatus(image?'RED 在看图…':'RED 正在回复…');clearImage();
+ const text=$('input').value.trim();if((!text&&!pendingImages.length)||busy)return;if(!getKey()){openSettings();setStatus('先连接 OpenRouter');return}
+ busy=true;$('sendBtn').disabled=true;rememberExplicit(text);const images=pendingImages.map(x=>x.file),names=images.map(x=>x.name);const userText=images.length?`${text||(images.length>1?'看看这些图。':'看看这张图。')}\n[附带图片 ${images.length} 张：${names.join('、')}]`:text;
+ await addMessage('user',userText);render();const b=bubble('assistant','',true);$('input').value='';$('input').style.height='46px';setStatus(images.length?(images.length>1?'RED 在看多张图…':'RED 在看图…'):'RED 正在回复…');clearImages();
  try{
-   const result=image?await visionTurn(text,image,b):await streamOpenRouter(contextMessages(),localStorage.getItem(K.model)||DEFAULT_MAIN,b);
-   await addMessage('assistant',result.text,'');setStatus('在线',true);
+   const result=images.length?await visionTurn(text,images,b):await streamOpenRouter(contextMessages(),localStorage.getItem(K.model)||DEFAULT_MAIN,b);
+   const meta=images.length?usageMeta(result.usage,images.length):'';setBubbleMeta(b,meta);await addMessage('assistant',result.text,meta);setStatus('在线',true);
  }catch(e){b.classList.remove('typing');b.textContent='这轮连接失败：'+String(e?.message||e)+'\n\n你的输入已经保留，可以直接再发“继续”。';setStatus('需要重试')}
  finally{busy=false;$('sendBtn').disabled=false;scrollBottom();maybeSummarize()}
 }
@@ -39,7 +51,13 @@ async function draw(){
  catch(e){b.classList.remove('typing');b.textContent='生图失败：'+String(e?.message||e);setStatus('生图失败')}
  finally{busy=false;$('sendBtn').disabled=false;scrollBottom()}
 }
-function clearImage(){pendingImage=null;if(pendingURL)URL.revokeObjectURL(pendingURL);pendingURL='';$('fileInput').value='';$('preview').classList.remove('show')}
+function renderImagePreview(){
+ const box=$('preview'),grid=$('previewGrid'),count=$('previewCount');grid.innerHTML='';
+ pendingImages.forEach((item,i)=>{const d=document.createElement('div');d.className='previewItem';const img=document.createElement('img');img.src=item.url;const x=document.createElement('button');x.className='previewRemoveOne';x.type='button';x.textContent='×';x.onclick=()=>removeImageAt(i);d.append(img,x);grid.appendChild(d)});
+ count.textContent=pendingImages.length?`${pendingImages.length} 张图片 · 最多 6 张`:'0 张图片';box.classList.toggle('show',pendingImages.length>0)
+}
+function removeImageAt(i){const item=pendingImages[i];if(item?.url)URL.revokeObjectURL(item.url);pendingImages.splice(i,1);renderImagePreview()}
+function clearImages(){for(const item of pendingImages)if(item.url)URL.revokeObjectURL(item.url);pendingImages=[];$('fileInput').value='';renderImagePreview()}
 function updateConnectCard(){const key=getKey();$('connectCard').innerHTML=key?'<b class="good">OpenRouter 已连接</b><br>专用密钥只保存在这台设备；不会写进 GitHub。':'<b class="warn">尚未连接 OpenRouter</b><br>点“连接 OpenRouter”，登录并授权后会自动返回 RED。'}
 function openSettings(){$('memory').value=localStorage.getItem(K.memory)||'';$('persona').value=localStorage.getItem(K.persona)||'';$('summary').value=localStorage.getItem(K.summary)||'';$('model').value=localStorage.getItem(K.model)||DEFAULT_MAIN;$('visionModel').value=localStorage.getItem(K.vision)||DEFAULT_VISION;$('imageModel').value=localStorage.getItem(K.image)||DEFAULT_IMAGE;$('balanceBase').value=localStorage.getItem(K.base)||'5.00';updateConnectCard();$('settingsSheet').classList.add('show')}
 function saveSettings(){localStorage.setItem(K.memory,$('memory').value.trim());localStorage.setItem(K.persona,$('persona').value.trim());localStorage.setItem(K.summary,$('summary').value.trim());localStorage.setItem(K.model,$('model').value);localStorage.setItem(K.vision,$('visionModel').value);localStorage.setItem(K.image,$('imageModel').value.trim()||DEFAULT_IMAGE);localStorage.setItem(K.base,$('balanceBase').value.trim()||'5.00');$('settingsSheet').classList.remove('show');setStatus('设定已保存',true)}
@@ -56,8 +74,8 @@ async function showQuota(){
 async function exportChat(){const data={exportedAt:new Date().toISOString(),version:'RED A8',model:localStorage.getItem(K.model)||DEFAULT_MAIN,memory:localStorage.getItem(K.memory)||'',persona:localStorage.getItem(K.persona)||'',summary:localStorage.getItem(K.summary)||'',messages:history.map(({role,content,ts,meta})=>({role,content,ts,meta}))};const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='RED-A8-archive-'+new Date().toISOString().slice(0,10)+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1500)}
 async function newChat(){if(!confirm('清空当前聊天归档？长期记忆会保留。建议先导出。'))return;await dbClear();history=[];localStorage.setItem(K.summary,'');localStorage.setItem(K.summaryCursor,'0');$('summary').value='';render();$('settingsSheet').classList.remove('show');setStatus('新对话',true)}
 
-$('fileInput').onchange=e=>{const f=e.target.files?.[0];if(!f)return;if(!f.type.startsWith('image/'))return alert('请选择图片。');pendingImage=f;if(pendingURL)URL.revokeObjectURL(pendingURL);pendingURL=URL.createObjectURL(f);$('previewImg').src=pendingURL;$('previewName').textContent=f.name;$('preview').classList.add('show')};
-$('imageBtn').onclick=()=>$('fileInput').click();$('removeImg').onclick=clearImage;$('drawBtn').onclick=draw;$('sendBtn').onclick=send;$('settingsBtn').onclick=openSettings;$('quotaBtn').onclick=showQuota;
+$('fileInput').onchange=e=>{const files=Array.from(e.target.files||[]).filter(f=>f.type.startsWith('image/'));if(!files.length)return;const before=pendingImages.length,existing=new Set(pendingImages.map(x=>`${x.file.name}:${x.file.size}:${x.file.lastModified}`));for(const f of files){if(pendingImages.length>=6)break;const key=`${f.name}:${f.size}:${f.lastModified}`;if(existing.has(key))continue;pendingImages.push({file:f,url:URL.createObjectURL(f)});existing.add(key)}$('fileInput').value='';renderImagePreview();if(before+files.length>6)setStatus('最多同时看 6 张图')};
+$('imageBtn').onclick=()=>$('fileInput').click();$('removeImg').onclick=clearImages;$('drawBtn').onclick=draw;$('sendBtn').onclick=send;$('settingsBtn').onclick=openSettings;$('quotaBtn').onclick=showQuota;
 $('input').addEventListener('compositionstart',()=>isComposing=true);$('input').addEventListener('compositionend',()=>isComposing=false);$('input').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!isComposing&&!e.isComposing&&e.keyCode!==229){e.preventDefault();send()}});
 $('input').addEventListener('input',()=>{$('input').style.height='auto';$('input').style.height=Math.min(120,$('input').scrollHeight)+'px'});
 $('input').addEventListener('focus',()=>setTimeout(()=>{fitViewport();scrollBottom(false)},180));$('input').addEventListener('blur',()=>setTimeout(fitViewport,100));
