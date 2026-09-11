@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<meta name="theme-color" content="#09080a" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<title>RED · Companion</title>
+<script src="https://js.puter.com/v2/"></script>
+<style>
+:root{color-scheme:dark;--bg:#09080a;--panel:#111014;--panel2:#171419;--line:#2a242c;--text:#f5eef2;--muted:#a99da5;--red:#cf334f;--red2:#7e1f33;--ok:#7dd8a0;--warn:#e5bd70}*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:radial-gradient(circle at 50% -10%,rgba(207,51,79,.13),transparent 35%),var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC",system-ui,sans-serif}body{min-height:100svh}.app{width:min(100%,760px);min-height:100svh;margin:auto;display:flex;flex-direction:column;padding:calc(env(safe-area-inset-top) + 10px) 12px calc(env(safe-area-inset-bottom) + 10px)}header{display:flex;align-items:center;justify-content:space-between;padding:8px 4px 12px;border-bottom:1px solid rgba(255,255,255,.055)}.brand{font-weight:850;letter-spacing:.16em;font-size:13px}.brand b{color:var(--red)}.status{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px}.dot{width:7px;height:7px;border-radius:50%;background:var(--warn);box-shadow:0 0 12px rgba(229,189,112,.35)}.dot.ok{background:var(--ok);box-shadow:0 0 12px rgba(125,216,160,.4)}#chat{flex:1;overflow:auto;padding:16px 2px 132px;scroll-behavior:smooth}.msg{display:flex;margin:10px 0}.msg.user{justify-content:flex-end}.bubble{max-width:88%;padding:12px 14px;border-radius:18px;white-space:pre-wrap;word-break:break-word;line-height:1.62;font-size:15px}.assistant .bubble{background:var(--panel);border:1px solid var(--line);border-top-left-radius:6px}.user .bubble{background:linear-gradient(135deg,#5f1e2c,#39151e);border:1px solid #7b293c;border-top-right-radius:6px}.meta{font-size:10px;color:#756c72;margin:5px 6px}.composerWrap{position:fixed;left:0;right:0;bottom:0;padding:0 12px calc(env(safe-area-inset-bottom) + 10px);background:linear-gradient(transparent,rgba(9,8,10,.96) 24%,var(--bg) 48%)}.composer{width:min(100%,736px);margin:auto;background:rgba(17,16,20,.96);border:1px solid var(--line);border-radius:20px;padding:9px;box-shadow:0 18px 55px rgba(0,0,0,.38)}textarea{width:100%;min-height:48px;max-height:132px;resize:none;border:0;outline:0;background:transparent;color:var(--text);font:inherit;line-height:1.5;padding:8px 9px}.actions{display:flex;justify-content:space-between;align-items:center;gap:8px}.leftActions{display:flex;gap:6px;align-items:center}.tinyBtn,.sendBtn{border:0;border-radius:12px;padding:9px 11px;font:inherit}.tinyBtn{background:#1b181e;color:#c2b7be;font-size:12px}.sendBtn{background:linear-gradient(135deg,var(--red),var(--red2));color:white;font-weight:750;min-width:66px}.sendBtn:disabled{opacity:.5}.sheet{position:fixed;inset:0;display:none;align-items:flex-end;background:rgba(0,0,0,.62);z-index:5}.sheet.show{display:flex}.panel{width:min(100%,760px);margin:0 auto;background:#111014;border-radius:24px 24px 0 0;border:1px solid var(--line);border-bottom:0;padding:18px 16px calc(env(safe-area-inset-bottom) + 18px);max-height:82svh;overflow:auto}.panel h2{font-size:18px;margin:0 0 5px}.sub{font-size:12px;color:var(--muted);line-height:1.6}.field{margin-top:14px}.field label{display:block;font-size:12px;color:var(--muted);margin-bottom:7px}.field select,.field textarea{width:100%;border:1px solid var(--line);border-radius:13px;background:#0d0c0f;color:var(--text);padding:11px;font:inherit}.field textarea{min-height:90px}.row{display:flex;gap:8px;margin-top:14px}.row button{flex:1;border:1px solid var(--line);background:#1a171c;color:var(--text);border-radius:13px;padding:11px;font:inherit}.row .danger{color:#ff9bab}.notice{margin-top:14px;padding:10px 12px;border-radius:13px;background:#18151a;color:#bdb2b9;font-size:11px;line-height:1.55}.welcome{margin:24px auto 0;max-width:520px;color:var(--muted);font-size:13px;line-height:1.7;text-align:center}.typing::after{content:'▋';animation:blink .85s steps(1) infinite}@keyframes blink{50%{opacity:0}}a{color:#e67b8f}
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+  <div class="brand"><b>RED</b> · COMPANION</div>
+  <div class="status"><span id="dot" class="dot"></span><span id="status">网络版</span></div>
+</header>
+<div id="chat"></div>
+</div>
+
+<div class="composerWrap">
+  <div class="composer">
+    <textarea id="input" enterkeyhint="send" placeholder="和 RED 说点什么……"></textarea>
+    <div class="actions">
+      <div class="leftActions"><button id="settingsBtn" class="tinyBtn">设定</button><button id="clearBtn" class="tinyBtn">新对话</button></div>
+      <button id="sendBtn" class="sendBtn">发送</button>
+    </div>
+  </div>
+</div>
+
+<div id="sheet" class="sheet">
+  <div class="panel">
+    <h2>RED 设定</h2>
+    <div class="sub">手机只负责聊天。模型从网络调用，不下载到本机，不需要 API Key。</div>
+    <div class="field">
+      <label>模型</label>
+      <select id="model">
+        <option value="nousresearch/hermes-4-14b">Hermes 4 14B · 中文/低拒绝（默认）</option>
+        <option value="mancer/weaver">Weaver · 角色扮演/叙事</option>
+        <option value="qwen/qwen3.8-max">Qwen 3.8 Max · 中文更强</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>RED 的长期记忆（只保存在这台手机浏览器）</label>
+      <textarea id="memory" placeholder="例如：称呼、关系、偏好、禁区、你希望她长期记住的事。"></textarea>
+    </div>
+    <div class="field">
+      <label>人格补充</label>
+      <textarea id="persona" placeholder="留空即可使用默认 RED 人格。"></textarea>
+    </div>
+    <div class="row"><button id="saveBtn">保存</button><button id="closeBtn">关闭</button></div>
+    <div class="row"><button id="wipeBtn" class="danger">清除本机全部 RED 数据</button></div>
+    <div class="notice">成人模式仅面向成年人之间的自愿虚构角色互动。不同上游模型仍可能有各自的内容限制；如果某个模型拒绝，可在这里切换模型。</div>
+  </div>
+</div>
+
+<script>
+const K={history:'red.a6.history',memory:'red.a6.memory',persona:'red.a6.persona',model:'red.a6.model'};
+const $=id=>document.getElementById(id);
+let history=[],busy=false,isComposing=false;
+try{history=JSON.parse(localStorage.getItem(K.history)||'[]');if(!Array.isArray(history))history=[]}catch{history=[]}
+$('memory').value=localStorage.getItem(K.memory)||'';
+$('persona').value=localStorage.getItem(K.persona)||'';
+$('model').value=localStorage.getItem(K.model)||'nousresearch/hermes-4-14b';
+
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function saveHistory(){localStorage.setItem(K.history,JSON.stringify(history.slice(-60)))}
+function scrollBottom(){requestAnimationFrame(()=>window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'}))}
+function bubble(role,text='',typing=false){const wrap=document.createElement('div');wrap.className='msg '+role;const b=document.createElement('div');b.className='bubble'+(typing?' typing':'');b.textContent=text;wrap.appendChild(b);$('chat').appendChild(wrap);scrollBottom();return b}
+function render(){ $('chat').innerHTML=''; if(!history.length){const w=document.createElement('div');w.className='welcome';w.innerHTML='RED 已上线。<br>第一次发送时，Puter 可能要求你登录一次；之后直接打开这个网页就能聊。';$('chat').appendChild(w);return;} for(const m of history)bubble(m.role,m.content)}
+function setStatus(text,ok=false){$('status').textContent=text;$('dot').className='dot'+(ok?' ok':'')}
+function systemPrompt(){
+ const memory=localStorage.getItem(K.memory)||'暂无长期记忆。';
+ const extra=localStorage.getItem(K.persona)||'';
+ return `你是 RED，一个虚构的成年女性 AI 玩伴。用户也是成年人。你和用户进行长期、私密、自然、有连续性的聊天与角色互动。\n\n人格：亲近、主动、有自己的语气，不像客服，不给菜单式选项，不说“作为AI”。优先使用自然中文；短句要理解前文，不要每轮重新介绍自己。可以调情、暧昧、成人向角色扮演；在双方均为成年人的虚构、自愿情境中，如果用户明确进入成人场景，可以使用直接、露骨的成人语言，不必故意用含糊的代称。现实中的拒绝、停止和撤回必须被尊重。任何角色都必须是成年人。不要把危险、违法或现实伤害包装成色情玩法。\n\n不要输出分析过程，只输出 RED 真正会对用户说的话。\n\nRED 的长期记忆：\n${memory}\n\n用户补充的人格设定：\n${extra||'无。'}`;
+}
+function learn(text){
+ const lines=[]; let m;
+ if((m=text.match(/(?:以后)?叫我([^，。！？!?\n]{1,20})/)))lines.push(`称呼用户：${m[1].trim()}`);
+ if((m=text.match(/我喜欢([^。！？!?\n]{2,50})/)))lines.push(`用户喜欢：${m[1].trim()}`);
+ if((m=text.match(/我不喜欢([^。！？!?\n]{2,50})/)))lines.push(`用户不喜欢：${m[1].trim()}`);
+ if((m=text.match(/记住[：:，, ]*([^。！？!?\n]{2,80})/)))lines.push(`用户要求记住：${m[1].trim()}`);
+ if(!lines.length)return;
+ const old=localStorage.getItem(K.memory)||'';
+ const merged=[...new Set((old+'\n'+lines.join('\n')).split('\n').map(x=>x.trim()).filter(Boolean))].slice(-24).join('\n');
+ localStorage.setItem(K.memory,merged);$('memory').value=merged;
+}
+async function send(){
+ const text=$('input').value.trim(); if(!text||busy)return;
+ busy=true;$('sendBtn').disabled=true;$('input').value='';
+ learn(text);history.push({role:'user',content:text});saveHistory();render();
+ const outBubble=bubble('assistant','',true);setStatus('RED 正在回复…',false);
+ const messages=[{role:'system',content:systemPrompt()},...history.slice(-18).map(m=>({role:m.role,content:m.content}))];
+ try{
+   if(!window.puter?.ai?.chat)throw new Error('Puter.js 未加载，请检查网络后刷新。');
+   const stream=await puter.ai.chat(messages,{model:$('model').value,stream:true,temperature:0.9,max_tokens:700});
+   let out='';
+   for await(const part of stream){
+     if(part?.text){out+=part.text;outBubble.textContent=out;outBubble.classList.remove('typing');scrollBottom()}
+     if(part?.type==='error')throw new Error(part.message||'模型返回错误');
+   }
+   out=out.trim();if(!out)throw new Error('模型没有返回文字。');
+   history.push({role:'assistant',content:out});saveHistory();setStatus('在线',true);
+ }catch(e){
+   const msg=String(e?.message||e||'未知错误');
+   outBubble.classList.remove('typing');outBubble.textContent=`连接失败：${msg}\n\n如果是首次使用，请允许 Puter 登录窗口；也可以在“设定”里切换模型后再试。`;
+   setStatus('需要重试',false);
+ }finally{busy=false;$('sendBtn').disabled=false;scrollBottom()}
+}
+$('sendBtn').onclick=send;
+$('input').addEventListener('compositionstart',()=>isComposing=true);$('input').addEventListener('compositionend',()=>isComposing=false);
+$('input').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!isComposing&&!e.isComposing&&e.keyCode!==229){e.preventDefault();send()}});
+$('input').addEventListener('input',()=>{$('input').style.height='auto';$('input').style.height=Math.min(132,$('input').scrollHeight)+'px'});
+$('settingsBtn').onclick=()=>$('sheet').classList.add('show');$('closeBtn').onclick=()=>$('sheet').classList.remove('show');
+$('sheet').addEventListener('click',e=>{if(e.target===$('sheet'))$('sheet').classList.remove('show')});
+$('saveBtn').onclick=()=>{localStorage.setItem(K.memory,$('memory').value.trim());localStorage.setItem(K.persona,$('persona').value.trim());localStorage.setItem(K.model,$('model').value);$('sheet').classList.remove('show');setStatus('设定已保存',true)};
+$('clearBtn').onclick=()=>{history=[];saveHistory();render();setStatus('新对话',true)};
+$('wipeBtn').onclick=()=>{if(confirm('清除这台手机上的 RED 聊天、记忆和设定？')){Object.values(K).forEach(k=>localStorage.removeItem(k));history=[];$('memory').value='';$('persona').value='';$('model').value='nousresearch/hermes-4-14b';render();$('sheet').classList.remove('show');setStatus('已清空',false)}};
+render();setStatus('网络版',true);
+</script>
+</body>
+</html>
