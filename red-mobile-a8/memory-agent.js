@@ -72,13 +72,15 @@
   }
 
   async function runMemoryPass(messages){
-    if(memoryBusy){memoryPending=true;return}
+    if(memoryBusy){memoryPending=true;return false}
     memoryBusy=true;
-    try{await learnFrom(messages)}catch(e){console.warn('auto memory skipped',e)}
+    let ok=false;
+    try{await learnFrom(messages);ok=true}catch(e){console.warn('auto memory skipped',e)}
     finally{
       memoryBusy=false;
       if(memoryPending){memoryPending=false;setTimeout(()=>runMemoryPass(history.slice(-14)),250)}
     }
+    return ok;
   }
 
   function queueRecentMemory(){setTimeout(()=>runMemoryPass(history.slice(-14)),350)}
@@ -97,7 +99,7 @@
     if(localStorage.getItem(BOOT_FLAG))return;
     if(!getKey()||!Array.isArray(history)||history.length<2){if(attempt<20)setTimeout(()=>bootstrapWhenReady(attempt+1),600);return}
     const sample=history.slice(-60);
-    runMemoryPass(sample).then(()=>localStorage.setItem(BOOT_FLAG,'1'));
+    runMemoryPass(sample).then(ok=>{if(ok)localStorage.setItem(BOOT_FLAG,'1')});
   }
   setTimeout(()=>bootstrapWhenReady(),1200);
 
