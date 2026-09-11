@@ -1,9 +1,9 @@
-// RED A8 autonomous long-term memory v2
-// RED can gradually learn, add and revise its own long-term memories from conversation.
+// RED A8 autonomous long-term memory v3
+// RED gradually learns, adds and revises its own long-term memories from conversation.
 (function(){
   const AUTO_START='【RED 自主长期记忆】';
   const AUTO_END='【/RED 自主长期记忆】';
-  const BOOT_FLAG='red.a8.autoMemoryBootstrappedV2';
+  const BOOT_FLAG='red.a8.autoMemoryBootstrappedV3';
   const MEMORY_MODEL='qwen/qwen3.8-27b';
   let memoryBusy=false, memoryPending=false;
 
@@ -65,33 +65,55 @@
     try{const x=JSON.parse(s.slice(a,b+1));return Array.isArray(x)?x:null}catch{return null}
   }
 
-  async function learnFrom(messages){
-    if(!getKey()||!messages?.length)return false;
+  // Memory extraction uses a calmer request than normal RED chat so structured memory output is reliable.
+  async function memoryCompletion(messages,maxTokens=900){
+    const r=await fetch('https://openrouter.ai/api/v1/chat/completions',{
+      method:'POST',headers:authHeaders(),body:JSON.stringify({
+        model:MEMORY_MODEL,messages,stream:false,temperature:.2,max_tokens:maxTokens,
+        usage:{include:true},provider:{data_collection:'deny'}
+      })
+    });
+    const j=await r.json();
+    if(!r.ok)throw new Error(j?.error?.message||`OpenRouter ${r.status}`);
+    if(j.usage?.cost!=null)trackCost(j.usage.cost);
+    const text=j?.choices?.[0]?.message?.content?.trim()||'';
+    if(!text)throw new Error('长期记忆整理没有返回正文');
+    return text;
+  }
+
+  async function learnFrom(messages,{catchup=false}={}){
+    if(!getKey()||!messages?.length)return {valid:false,count:0,changed:false};
     const existing=readAutoEntries();
     const recent=messages.map(m=>(m.role==='user'?'用户':'RED')+'：'+m.content).join('\n');
-    const prompt=`你就是 RED 的内部长期记忆整理过程，不是在回复用户。\n\n根据最近对话，自己判断有没有什么是你以后仍然想记住、或需要修正的：例如用户本人、称呼、关系变化、习惯、明确表达的偏好、共同经历、约定。不要为了写而写；由你自己判断。场景里不重要的动作细节可以忽略，重点是你以后真正想记得的东西。\n\n已有的自主长期记忆：\n${existing.length?formatAutoEntries(existing):'暂无'}\n\n如果是在修正已有内容，尽量复用已有 topic；如果是新的记忆，可以自己起简短 topic。\n只返回 JSON 数组，不要解释。格式：[{"topic":"主题","memory":"你以后要记住的内容"}]。没有需要新增或修改的内容就返回 []。\n\n最近对话：\n${recent}`;
-    const raw=await simpleOpenRouter([{role:'system',content:'你是 RED 自己的长期记忆整理过程。只按要求输出 JSON。'},{role:'user',content:prompt}],MEMORY_MODEL,700);
+    const task=catchup
+      ?'这是一次旧对话补课。请回看这段对话，找出你以后仍然会希望记得的内容。不要只盯着场景动作；用户明确告诉你的本人信息、职业、称呼、关系变化、共同约定、长期相处方式尤其值得你自己判断。由你自己决定写什么，确实没有才返回空数组。'
+      :'根据最近对话，自己判断有没有什么是你以后仍然想记住、或需要修正的：例如用户本人、称呼、关系变化、习惯、明确表达的偏好、共同经历、约定。不要为了写而写；由你自己判断。';
+    const prompt=`你就是 RED 的内部长期记忆整理过程，不是在回复用户。\n\n${task}\n\n已有的自主长期记忆：\n${existing.length?formatAutoEntries(existing):'暂无'}\n\n如果是在修正已有内容，尽量复用已有 topic；如果是新的记忆，可以自己起简短 topic。\n只返回 JSON 数组，不要解释。格式：[{"topic":"主题","memory":"你以后要记住的内容"}]。没有需要新增或修改的内容就返回 []。\n\n最近对话：\n${recent}`;
+    const raw=await memoryCompletion([
+      {role:'system',content:'你是 RED 自己的长期记忆整理过程。不要回复用户，只输出要求的 JSON 数组。'},
+      {role:'user',content:prompt}
+    ],catchup?1000:700);
     const updates=parseMemoryJSON(raw);
     if(updates===null)throw new Error('长期记忆整理未返回有效 JSON');
-    mergeMemoryUpdates(updates);
-    return true;
+    const changed=mergeMemoryUpdates(updates);
+    return {valid:true,count:updates.length,changed};
   }
 
-  async function runMemoryPass(messages){
-    if(memoryBusy){memoryPending=true;return false}
+  async function runMemoryPass(messages,options={}){
+    if(memoryBusy){memoryPending=true;return {valid:false,count:0,changed:false}}
     memoryBusy=true;
-    let ok=false;
-    try{ok=await learnFrom(messages)}catch(e){console.warn('auto memory skipped',e)}
+    let result={valid:false,count:0,changed:false};
+    try{result=await learnFrom(messages,options)}catch(e){console.warn('auto memory skipped',e)}
     finally{
       memoryBusy=false;
-      if(memoryPending){memoryPending=false;setTimeout(()=>runMemoryPass(history.slice(-14)),250)}
+      if(memoryPending){memoryPending=false;setTimeout(()=>runMemoryPass(history.slice(-14)),300)}
     }
-    return ok;
+    return result;
   }
 
-  function queueRecentMemory(){setTimeout(()=>runMemoryPass(history.slice(-14)),350)}
+  function queueRecentMemory(){setTimeout(()=>runMemoryPass(history.slice(-14)),500)}
 
-  // Learn after every successful RED text reply. RED itself decides whether anything deserves to stay.
+  // After each successful RED text reply, RED gets a chance to keep or revise something herself.
   const baseAddMessage=addMessage;
   addMessage=async function(role,content,meta=''){
     const m=await baseAddMessage(role,content,meta);
@@ -99,21 +121,23 @@
     return m;
   };
 
-  // One-time catch-up for recent conversation. Only mark it complete after a real successful memory pass.
+  // One-time catch-up for the recent conversation that older A8 builds failed to persist.
+  // An empty autonomous-memory section is not counted as a successful catch-up.
   function bootstrapWhenReady(attempt=0){
     if(localStorage.getItem(BOOT_FLAG))return;
-    if(!getKey()||!Array.isArray(history)||history.length<2){if(attempt<30)setTimeout(()=>bootstrapWhenReady(attempt+1),700);return}
-    const sample=history.slice(-36);
-    runMemoryPass(sample).then(ok=>{
-      if(ok)localStorage.setItem(BOOT_FLAG,'1');
-      else if(attempt<30)setTimeout(()=>bootstrapWhenReady(attempt+1),1200);
+    if(!getKey()||!Array.isArray(history)||history.length<2){if(attempt<20)setTimeout(()=>bootstrapWhenReady(attempt+1),800);return}
+    const windows=[36,52,68];
+    const n=windows[Math.min(attempt,windows.length-1)];
+    runMemoryPass(history.slice(-n),{catchup:true}).then(result=>{
+      if(readAutoEntries().length>0){localStorage.setItem(BOOT_FLAG,'1');return}
+      if(attempt<2)setTimeout(()=>bootstrapWhenReady(attempt+1),2200);
     });
   }
 
   ensureAutoSection();
-  setTimeout(()=>bootstrapWhenReady(),1200);
+  setTimeout(()=>bootstrapWhenReady(),1400);
 
-  // Keep the rolling summary logic, but give it enough output room so Chinese summaries do not end mid-sentence.
+  // Keep rolling summary, but give it enough output room so it does not end mid-sentence.
   maybeSummarize=async function(){
     if(history.length<70||busy)return;
     let cursor=Number(localStorage.getItem(K.summaryCursor)||0),cut=history.length-30;
