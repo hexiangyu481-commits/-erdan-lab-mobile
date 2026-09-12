@@ -2,6 +2,7 @@ import webpush from "web-push";
 
 const VAPID_KEY="push:vapid";
 const SUBS_KEY="push:subscriptions";
+const SENT_KEY="push:sent-outbox";
 const MAX_SUBSCRIPTIONS=6;
 const VAPID_SUBJECT="https://hexiangyu481-commits.github.io/";
 
@@ -29,6 +30,9 @@ async function subscriptions(env){
 async function saveSubscriptions(env,xs){
   await env.RED_STATE.put(SUBS_KEY,JSON.stringify(xs.map(cleanSubscription).filter(Boolean).slice(-MAX_SUBSCRIPTIONS)));
 }
+async function sentIds(env){const xs=safe(await env.RED_STATE.get(SENT_KEY),[]);return Array.isArray(xs)?xs.map(String).slice(-180):[]}
+async function saveSentIds(env,xs){await env.RED_STATE.put(SENT_KEY,JSON.stringify([...new Set(xs.map(String))].slice(-180)))}
+async function currentOutbox(env){const s=safe(await env.RED_STATE.get("state"),{});return Array.isArray(s?.outbox)?s.outbox:[]}
 
 export async function publicPushConfig(env){
   const keys=await vapid(env),xs=await subscriptions(env);
@@ -39,6 +43,7 @@ export async function subscribePush(env,raw){
   const sub=cleanSubscription(raw);if(!sub)throw new Error("invalid_push_subscription");
   await vapid(env);
   const xs=await subscriptions(env),next=xs.filter(x=>x.endpoint!==sub.endpoint);next.push(sub);await saveSubscriptions(env,next);
+  const existing=await currentOutbox(env),seen=await sentIds(env);for(const m of existing)if(m?.id)seen.push(String(m.id));await saveSentIds(env,seen);
   return {ok:true,subscriptions:next.length};
 }
 
@@ -61,4 +66,15 @@ export async function sendPush(env,{title="R",body="R 来找你了。",url="http
   }
   if(keep.length!==xs.length)await saveSubscriptions(env,keep);
   return {ok:true,sent,subscriptions:keep.length};
+}
+
+export async function notifyNewOutbox(env){
+  const xs=await subscriptions(env);if(!xs.length)return {ok:true,sent:0,reason:"no_subscription"};
+  const outbox=await currentOutbox(env),seen=await sentIds(env),known=new Set(seen);let sent=0;
+  for(const m of outbox){
+    const id=String(m?.id||"");if(!id||known.has(id)||m?.role!=="assistant"||!String(m?.content||"").trim())continue;
+    const r=await sendPush(env,{title:"R",body:String(m.content),tag:`red-a8-${id}`});
+    if(r.sent>0){known.add(id);seen.push(id);sent+=r.sent}
+  }
+  await saveSentIds(env,seen);return {ok:true,sent};
 }
