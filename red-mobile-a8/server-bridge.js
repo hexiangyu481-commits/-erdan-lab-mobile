@@ -1,9 +1,9 @@
-// RED A8 server bridge v1.4
+// RED A8 server bridge v1.4.1
 // Text chat can be accepted by the Worker immediately, finish after Safari leaves,
 // and sync back on the next foreground. Rapid text bursts are grouped into one reply.
 // Images keep using the existing direct path.
 (function(){
-  const V='1.4.0';
+  const V='1.4.1';
   const DEFAULT_URL='https://red-a8-mind.hexiangyu481.workers.dev';
   const CHAT_DEBOUNCE_MS=1100;
   const S={url:'red.a8.server.url',token:'red.a8.server.token',enabled:'red.a8.server.enabled',boot:'red.a8.server.bootstrappedV1',seen:'red.a8.server.seenV1',surf:'red.a8.server.surfStats',surfHistory:'red.a8.server.surfHistory'};
@@ -25,10 +25,10 @@
   function seen(){const x=safeJSON(localStorage.getItem(S.seen)||'[]',[]);return Array.isArray(x)?x:[]}
   function saveSeen(xs){localStorage.setItem(S.seen,JSON.stringify(xs.slice(-160)))}
   function headers(){return {'content-type':'application/json','x-red-token':token()}}
-  async function request(path,{method='GET',body,timeout=15000}={}){
+  async function request(path,{method='GET',body,timeout=15000,keepalive=false}={}){
     const c=new AbortController(),t=setTimeout(()=>c.abort(),timeout);
     try{
-      const r=await fetch(url()+path,{method,headers:headers(),body:body===undefined?undefined:JSON.stringify(body),signal:c.signal});
+      const r=await fetch(url()+path,{method,headers:headers(),body:body===undefined?undefined:JSON.stringify(body),signal:c.signal,keepalive});
       let data=null;try{data=await r.json()}catch{}
       if(!r.ok)throw new Error(data?.error||`后台 ${r.status}`);return data;
     }finally{clearTimeout(t)}
@@ -77,15 +77,15 @@
     }catch(e){if(!quiet)console.warn('RED server sync skipped',e);return false}finally{syncBusy=false}
   }
   function startPolling(){if(pollTimer)clearInterval(pollTimer);if(!configured())return;pollTimer=setInterval(()=>{if(document.visibilityState==='visible')syncNow({quiet:true})},6000)}
-  async function enqueueChat({messages,model,userEvent}){
-    const jobId=crypto.randomUUID();const data=await request('/chat',{method:'POST',timeout:15000,body:{jobId,model,identityContext:identityContext(),messages,clientUserEvent:userEvent}});return data;
+  async function enqueueChat({messages,model,userEvent,keepalive=false}){
+    const jobId=crypto.randomUUID();const data=await request('/chat',{method:'POST',timeout:15000,keepalive,body:{jobId,model,identityContext:identityContext(),messages,clientUserEvent:userEvent}});return data;
   }
-  function flushChatBatch(){
-    chatDebounceTimer=null;
+  function flushChatBatch({keepalive=false}={}){
+    if(chatDebounceTimer){clearTimeout(chatDebounceTimer);chatDebounceTimer=null;}
     const batch=chatBatch.splice(0);if(!batch.length)return;
     const last=batch[batch.length-1];
     enqueueChain=enqueueChain.then(async()=>{
-      await enqueueChat({model:last.model,messages:last.messages,userEvent:{id:`local:${last.userMsg.id}`,role:'user',content:last.text,ts:last.ts}});
+      await enqueueChat({model:last.model,messages:last.messages,userEvent:{id:`local:${last.userMsg.id}`,role:'user',content:last.text,ts:last.ts},keepalive});
       setStatus(batch.length>1?`R 在想 · 刚才 ${batch.length} 条一起看`:'R 在想 · 你可以继续发，也可以直接关掉',true);
       setTimeout(()=>syncNow({quiet:true}),2500);
     }).catch(e=>{
@@ -97,7 +97,8 @@
     chatBatch.push({...x,text});
     if(chatDebounceTimer)clearTimeout(chatDebounceTimer);
     setStatus(chatBatch.length>1?`R 收到了 · 等你这口气说完（${chatBatch.length} 条）`:'R 收到了 · 你可以继续发',true);
-    chatDebounceTimer=setTimeout(flushChatBatch,CHAT_DEBOUNCE_MS);
+    if(document.visibilityState!=='visible')flushChatBatch({keepalive:true});
+    else chatDebounceTimer=setTimeout(()=>flushChatBatch(),CHAT_DEBOUNCE_MS);
   }
   function serverSend(){
     const text=$('input').value.trim();
@@ -146,7 +147,9 @@
     const m=await baseAddMessage(role,content,meta);if(!syncingFromServer)mirrorEvent(m);return m;
   };
   window.send=serverSend;$('sendBtn').onclick=serverSend;
-  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')syncNow({quiet:true})});window.addEventListener('online',()=>syncNow({quiet:true}));
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')syncNow({quiet:true});else flushChatBatch({keepalive:true})});
+  window.addEventListener('pagehide',()=>flushChatBatch({keepalive:true}));
+  window.addEventListener('online',()=>syncNow({quiet:true}));
   window.REDServer={version:V,configured,syncNow,bootstrap,connect:connectFromUI,url};
   installUI();
   setTimeout(async()=>{if(configured()){await syncNow({quiet:true});try{await bootstrap(false)}catch(e){console.warn('RED server bootstrap skipped',e)}startPolling();setCardStatus('已连接 · 文字可以连续发 · 快速连发会合成一轮回复 · 发完也可直接切走 · R 可只读冲浪',true)}},900);
