@@ -1,6 +1,7 @@
 // RED A8 temporary surf verification controls.
 (function(){
   const S={url:'red.a8.server.url',token:'red.a8.server.token',enabled:'red.a8.server.enabled'};
+  const MANUAL='[manual-test] ';
   function serverUrl(){return (localStorage.getItem(S.url)||'https://red-a8-mind.hexiangyu481.workers.dev').replace(/\/+$/,'')}
   function token(){return localStorage.getItem(S.token)||''}
   function configured(){return localStorage.getItem(S.enabled)==='1'&&!!token()}
@@ -8,14 +9,14 @@
     const out=document.getElementById('surfTestResult');
     if(!configured()){out.textContent='先把 R 后台服务器连接好。';return}
     out.textContent=lane==='adult'?'R 正在试着逛成年人公开网页…':'R 正在试着随便逛逛…';
-    const query=lane==='adult'?'自己找一点你此刻真的感兴趣的成年人内容、关系或幻想灵感':'自己随便逛逛，找一点你此刻真的感兴趣的东西';
+    const query=MANUAL+(lane==='adult'?'自己找一点你此刻真的感兴趣的成年人内容、关系或幻想灵感':'自己随便逛逛，找一点你此刻真的感兴趣的东西');
     try{
       const r=await fetch(serverUrl()+'/surf',{method:'POST',headers:{'content-type':'application/json','x-red-token':token()},body:JSON.stringify({lane,query})});
       const j=await r.json();
       if(!r.ok)throw new Error(j?.error||('HTTP '+r.status));
       if(!j?.ok){
         const why=j?.skipped||'没有读到可用页面';
-        out.textContent=why==='cooldown'?'这次被冲浪冷却挡住了（约45分钟内只允许一次），说明接口已通。':why==='daily_limit'?'今天的冲浪次数已经到上限。':`这次没逛成：${why}`;
+        out.textContent=why==='daily_limit'?'今天的自主冲浪次数已经到上限。':why==='no_readable_pages'?`接口正常，但这次候选站点都没给出可读页面（尝试 ${Number(j?.attempted||0)} 个）。`:`这次没逛成：${why}`;
         return;
       }
       const pages=Array.isArray(j.sources)?j.sources:[];
@@ -29,7 +30,7 @@
   function install(){
     const card=document.getElementById('serverBridgeCard');
     if(!card||document.getElementById('surfTestBox'))return;
-    const box=document.createElement('div');box.id='surfTestBox';box.innerHTML=`<div class="row" style="margin-top:9px"><button id="surfTestNormal" type="button">测试普通冲浪</button><button id="surfTestAdult" type="button">测试成人冲浪</button></div><div id="surfTestResult" class="notice" style="margin-top:7px">仅用于验收。正式运行时由 R 自己决定要不要出去逛。</div>`;
+    const box=document.createElement('div');box.id='surfTestBox';box.innerHTML=`<div class="row" style="margin-top:9px"><button id="surfTestNormal" type="button">测试普通冲浪</button><button id="surfTestAdult" type="button">测试成人冲浪</button></div><div id="surfTestResult" class="notice" style="margin-top:7px">仅用于验收；测试按钮不受 45 分钟自主冲浪冷却影响。正式运行时仍由 R 自己决定要不要出去逛。</div>`;
     card.appendChild(box);
     document.getElementById('surfTestNormal').onclick=()=>run('normal');
     document.getElementById('surfTestAdult').onclick=()=>run('adult');
