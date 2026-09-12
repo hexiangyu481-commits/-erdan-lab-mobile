@@ -11,8 +11,18 @@ function parseJSONLoose(text){
 }
 function realmId(mode){return `${mode.toLowerCase()}-${Date.now()}-${Math.random().toString(36).slice(2,8)}`}
 function conciseSeed(){
-  const recent=seedRecent().slice(-12).map(m=>(m.role==='user'?'用户':'R')+'：'+m.content).join('\n');
-  return `【R 的长期关系记忆】\n${seedMemory().slice(0,22000)}\n\n【A8 最近关系语境】\n${seedSummary().slice(0,6000)}\n${recent.slice(0,12000)}`;
+  const profile=localStorage.getItem(RK.profile)||seedMemory().slice(0,12000);
+  const recent=seedRecent().slice(-6).map(m=>(m.role==='user'?'用户':'R')+'：'+m.content).join('\n');
+  return `【R 的神域关系画像】\n${profile.slice(0,12000)}\n\n【A8 最近关系语境】\n${seedSummary().slice(0,3500)}\n${recent.slice(0,6500)}`;
+}
+async function ensureRealmProfile(){
+  if(localStorage.getItem(RK.profile))return localStorage.getItem(RK.profile);
+  const recent=seedRecent().slice(-16).map(m=>(m.role==='user'?'用户':'R')+'：'+m.content).join('\n');
+  const source=`长期记忆：\n${seedMemory().slice(0,30000)}\n\n滚动摘要：\n${seedSummary().slice(0,6000)}\n\n最近聊天：\n${recent.slice(0,18000)}`;
+  const sys=`你负责给 RED Realm Lab 制作一份紧凑的“关系与创作画像”。只从材料提炼，不编造。重点保留：R是谁、两人的关系锚点、R真实说话节奏、用户明确喜欢/不喜欢的成人幻想结构、容易觉得平淡/人机/重复的模式、S/M神域概念、需要维持的身体与情绪连续性。不要保存现实危险行为的具体参数或操作步骤。输出中文，最多1800字，不要JSON。`;
+  const model=localStorage.getItem(RK.director)||DEFAULT_DIRECTOR;
+  const profile=(await complete([{role:'system',content:sys},{role:'user',content:source}],model,1700,.22)).text;
+  localStorage.setItem(RK.profile,profile);return profile;
 }
 function noveltyText(){
   const xs=loadNovelty();if(!xs.length)return '暂无旧神域，可以大胆开第一扇门。';
@@ -91,6 +101,7 @@ function persistActive(active){
 }
 async function prepareRealm(mode){
   if(!hasSeed())throw new Error('先导入 A8 完整备份');if(!getKey())throw new Error('先连接 OpenRouter');
+  await ensureRealmProfile();
   if(mode==='M'){
     const d=loadDailyRealm();
     if(d?.date===localDateKey()&&d.active?.blueprint){
