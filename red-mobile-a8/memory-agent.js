@@ -1,11 +1,11 @@
-// RED A8 autonomous long-term memory v3
-// RED gradually learns, adds and revises its own long-term memories from conversation.
+// RED A8 autonomous long-term memory v4
+// RED gradually learns, adds and revises its own long-term memories from conversation and rolling summaries.
 (function(){
   const AUTO_START='【RED 自主长期记忆】';
   const AUTO_END='【/RED 自主长期记忆】';
   const BOOT_FLAG='red.a8.autoMemoryBootstrappedV3';
   const MEMORY_MODEL='qwen/qwen3.8-27b';
-  let memoryBusy=false, memoryPending=false;
+  let memoryBusy=false, memoryPending=false, summaryPending='';
 
   function cleanOneLine(s){return String(s||'').replace(/[\r\n]+/g,' ').replace(/\s+/g,' ').trim()}
   function escapeRegExp(s){return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}
@@ -99,6 +99,20 @@
     return {valid:true,count:updates.length,changed};
   }
 
+  async function consolidateSummary(summary){
+    if(!getKey()||!String(summary||'').trim())return {valid:false,count:0,changed:false};
+    const existing=readAutoEntries();
+    const prompt=`你就是 RED 的内部长期记忆整理过程，不是在回复用户。\n\n下面这份内容是你的滚动会话摘要。请自己判断：其中有没有已经重要到值得进入长期记忆、或应该用来修正已有长期记忆的东西。不要机械复制整份摘要，也不要为了写而写；哪些值得长期留下由你自己决定。\n\n已有的自主长期记忆：\n${existing.length?formatAutoEntries(existing):'暂无'}\n\n如果是在修正已有内容，尽量复用已有 topic；如果是新的记忆，可以自己起简短 topic。\n只返回 JSON 数组，不要解释。格式：[{"topic":"主题","memory":"你以后要记住的内容"}]。没有值得晋升或修正的内容就返回 []。\n\n当前滚动摘要：\n${summary}`;
+    const raw=await memoryCompletion([
+      {role:'system',content:'你是 RED 自己的长期记忆巩固过程。不要回复用户，只输出要求的 JSON 数组。'},
+      {role:'user',content:prompt}
+    ],800);
+    const updates=parseMemoryJSON(raw);
+    if(updates===null)throw new Error('滚动摘要记忆巩固未返回有效 JSON');
+    const changed=mergeMemoryUpdates(updates);
+    return {valid:true,count:updates.length,changed};
+  }
+
   async function runMemoryPass(messages,options={}){
     if(memoryBusy){memoryPending=true;return {valid:false,count:0,changed:false}}
     memoryBusy=true;
@@ -107,11 +121,25 @@
     finally{
       memoryBusy=false;
       if(memoryPending){memoryPending=false;setTimeout(()=>runMemoryPass(history.slice(-14)),300)}
+      if(summaryPending)setTimeout(flushSummaryConsolidation,500);
     }
     return result;
   }
 
+  async function flushSummaryConsolidation(){
+    if(!summaryPending)return;
+    if(memoryBusy){setTimeout(flushSummaryConsolidation,700);return}
+    const summary=summaryPending;summaryPending='';memoryBusy=true;
+    try{await consolidateSummary(summary)}catch(e){console.warn('summary memory consolidation skipped',e)}
+    finally{
+      memoryBusy=false;
+      if(memoryPending){memoryPending=false;setTimeout(()=>runMemoryPass(history.slice(-14)),300)}
+      if(summaryPending)setTimeout(flushSummaryConsolidation,700);
+    }
+  }
+
   function queueRecentMemory(){setTimeout(()=>runMemoryPass(history.slice(-14)),500)}
+  function queueSummaryConsolidation(summary){summaryPending=String(summary||'');setTimeout(flushSummaryConsolidation,700)}
 
   // After each successful RED text reply, RED gets a chance to keep or revise something herself.
   const baseAddMessage=addMessage;
@@ -128,7 +156,7 @@
     if(!getKey()||!Array.isArray(history)||history.length<2){if(attempt<20)setTimeout(()=>bootstrapWhenReady(attempt+1),800);return}
     const windows=[36,52,68];
     const n=windows[Math.min(attempt,windows.length-1)];
-    runMemoryPass(history.slice(-n),{catchup:true}).then(result=>{
+    runMemoryPass(history.slice(-n),{catchup:true}).then(()=>{
       if(readAutoEntries().length>0){localStorage.setItem(BOOT_FLAG,'1');return}
       if(attempt<2)setTimeout(()=>bootstrapWhenReady(attempt+1),2200);
     });
@@ -137,7 +165,8 @@
   ensureAutoSection();
   setTimeout(()=>bootstrapWhenReady(),1400);
 
-  // Keep rolling summary, but give it enough output room so it does not end mid-sentence.
+  // Rolling summary stays short-term; after each successful refresh, RED gets a separate chance
+  // to promote anything she considers important into autonomous long-term memory.
   maybeSummarize=async function(){
     if(history.length<70||busy)return;
     let cursor=Number(localStorage.getItem(K.summaryCursor)||0),cut=history.length-30;
@@ -146,7 +175,12 @@
     const old=localStorage.getItem(K.summary)||'';
     try{
       const sum=await simpleOpenRouter([{role:'system',content:'你负责为长期陪伴型聊天维护滚动记忆摘要。只保留事实、关系动态、稳定偏好/边界、正在进行的话题与尚未完成事项；删除重复和临时闲聊；绝不编造。成人偏好可以中性准确地概括。输出中文精炼摘要，不超过1200字。'},{role:'user',content:`已有摘要：\n${old||'无'}\n\n新增旧对话：\n${segment}`}],localStorage.getItem(K.model)||DEFAULT_MAIN,1800);
-      if(sum){localStorage.setItem(K.summary,sum);localStorage.setItem(K.summaryCursor,String(cut));if($('summary'))$('summary').value=sum}
+      if(sum){
+        localStorage.setItem(K.summary,sum);
+        localStorage.setItem(K.summaryCursor,String(cut));
+        if($('summary'))$('summary').value=sum;
+        queueSummaryConsolidation(sum);
+      }
     }catch(e){console.warn('summary skipped',e)}
   };
 })();
