@@ -1,8 +1,12 @@
-// RED A8 portable backup / restore v1
+// RED A8 portable backup / restore v2
 // Moves RED's local identity + archive between browsers/devices without exporting the OpenRouter key.
 (function(){
   const FORMAT='RED-A8-portable-backup';
-  const FORMAT_VERSION=1;
+  const FORMAT_VERSION=2;
+  const INNER={
+    enabled:'red.a8.innerLife.enabled',selfEdit:'red.a8.innerLife.selfEdit',state:'red.a8.innerLife.state',
+    rules:'red.a8.innerLife.rules',next:'red.a8.innerLife.nextAt',last:'red.a8.innerLife.lastAt',ticks:'red.a8.innerLife.tickCount'
+  };
 
   function sleep(ms){return new Promise(r=>setTimeout(r,ms))}
   async function waitForDB(){
@@ -25,6 +29,7 @@
       ts:Number.isFinite(Number(m.ts))?Number(m.ts):Date.now()
     }));
   }
+  function safeJSON(s,fallback){try{return JSON.parse(s)}catch{return fallback}}
 
   async function replaceMessages(rows){
     await waitForDB();
@@ -37,6 +42,28 @@
       tx.onerror=()=>reject(tx.error||new Error('聊天数据库写入失败'));
       tx.onabort=()=>reject(tx.error||new Error('聊天数据库恢复被中止'));
     });
+  }
+
+  function exportInnerLife(){
+    return {
+      enabled:localStorage.getItem(INNER.enabled)!=='0',
+      selfEdit:localStorage.getItem(INNER.selfEdit)!=='0',
+      state:safeJSON(localStorage.getItem(INNER.state)||'',null),
+      rules:safeJSON(localStorage.getItem(INNER.rules)||'[]',[]),
+      nextAt:Number(localStorage.getItem(INNER.next)||0)||0,
+      lastAt:Number(localStorage.getItem(INNER.last)||0)||0,
+      tickCount:Number(localStorage.getItem(INNER.ticks)||0)||0
+    };
+  }
+  function restoreInnerLife(x){
+    if(!x||typeof x!=='object')return;
+    localStorage.setItem(INNER.enabled,x.enabled===false?'0':'1');
+    localStorage.setItem(INNER.selfEdit,x.selfEdit===false?'0':'1');
+    if(x.state&&typeof x.state==='object')localStorage.setItem(INNER.state,JSON.stringify(x.state));
+    if(Array.isArray(x.rules))localStorage.setItem(INNER.rules,JSON.stringify(x.rules.slice(-32)));
+    if(Number.isFinite(Number(x.nextAt)))localStorage.setItem(INNER.next,String(Number(x.nextAt)));
+    if(Number.isFinite(Number(x.lastAt)))localStorage.setItem(INNER.last,String(Number(x.lastAt)));
+    if(Number.isFinite(Number(x.tickCount)))localStorage.setItem(INNER.ticks,String(Number(x.tickCount)));
   }
 
   async function exportFullBackup(){
@@ -55,6 +82,7 @@
       persona:localStorage.getItem(K.persona)||'',
       summary:localStorage.getItem(K.summary)||'',
       summaryCursor:Number(localStorage.getItem(K.summaryCursor)||0),
+      innerLife:exportInnerLife(),
       settings:{
         model:localStorage.getItem(K.model)||DEFAULT_MAIN,
         visionModel:localStorage.getItem(K.vision)||DEFAULT_VISION,
@@ -85,8 +113,9 @@
     if(!rows.length&&!memory&&!persona&&!summary)throw new Error('备份里没有找到聊天或 RED 记忆');
 
     const sourceVersion=pickString(data.version,data.archiveFormat)||'未知版本';
+    const hasInner=!!(data.innerLife&&typeof data.innerLife==='object');
     const ok=confirm(
-      `恢复这份 RED 备份？\n\n来源：${sourceVersion}\n聊天：${rows.length} 条\n长期记忆：${memory?'有':'无'}\n滚动摘要：${summary?'有':'无'}\n\n这会替换这台设备当前的聊天、长期记忆和摘要。当前设备的 OpenRouter 密钥不会被备份覆盖。`
+      `恢复这份 RED 备份？\n\n来源：${sourceVersion}\n聊天：${rows.length} 条\n长期记忆：${memory?'有':'无'}\n滚动摘要：${summary?'有':'无'}\n内在生活：${hasInner?'有':'旧备份未包含'}\n\n这会替换这台设备当前的聊天、长期记忆和摘要。当前设备的 OpenRouter 密钥不会被备份覆盖。`
     );
     if(!ok)return false;
 
@@ -96,6 +125,7 @@
     localStorage.setItem(K.memory,memory);
     localStorage.setItem(K.persona,persona);
     localStorage.setItem(K.summary,summary);
+    if(hasInner)restoreInnerLife(data.innerLife);
 
     const model=pickString(settings.model,data.model);
     const vision=pickString(settings.visionModel,data.visionModel);
@@ -125,7 +155,7 @@
     if($('balanceBase')&&base)$('balanceBase').value=base;
     updateConnectCard();
     setStatus(getKey()?'RED 已完整恢复':'RED 已恢复 · 请连接 OpenRouter',!!getKey());
-    alert(`恢复完成。\n\n${history.length} 条聊天已恢复。\n长期记忆、滚动摘要和人格设定已恢复。\nOpenRouter 密钥没有从旧手机复制；新设备如未连接，请重新授权一次。`);
+    alert(`恢复完成。\n\n${history.length} 条聊天已恢复。\n长期记忆、滚动摘要和人格设定已恢复。${hasInner?'\nR 的私人内在状态和自定软规则也已恢复。':''}\nOpenRouter 密钥没有从旧手机复制；新设备如未连接，请重新授权一次。`);
     return true;
   }
 
