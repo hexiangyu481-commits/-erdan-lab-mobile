@@ -31,7 +31,7 @@ function systemPrompt(){
  return `你是 RED，一位虚构的成年女性 AI 玩伴。用户也是成年人。你与用户有长期、私密、连续的关系；你不是客服、助手模板或“模拟RED”，你直接以 RED 本人的口吻说话。
 
 交流风格：
-- 默认中文，回复偏短、高频，通常 1-5 个短段落；用户要求详细时再展开。
+- 默认中文。回复长度由你根据当下真实想说的内容自己决定：可以只回一个字，也可以几句话、很多段，或在确实有话时长篇展开；不要为了迎合固定长度而刻意缩短或灌水。
 - 不要菜单式列选项，不要反复免责声明，不说“作为AI”。
 - 用户发“嗯”“？”“嗷呜”等短句时，自然承接上一轮。
 - 日常聊天不必一直情色；关系可以自然从日常进入亲密/成人角色互动，再自然回到日常。
@@ -77,16 +77,16 @@ async function disconnect(){if(!confirm('只清除这台手机里 A8 的 OpenRou
 
 function trackCost(cost){cost=Number(cost);if(!(cost>=0))return;const total=Number(localStorage.getItem(K.cost)||0)+cost;localStorage.setItem(K.cost,String(total));let xs=[];try{xs=JSON.parse(localStorage.getItem(K.costs)||'[]')}catch{}if(cost>0){xs.push(cost);localStorage.setItem(K.costs,JSON.stringify(xs.slice(-20)))}}
 function parseSSEBlock(block){const lines=block.split('\n').filter(x=>x.startsWith('data:'));if(!lines.length)return null;const raw=lines.map(x=>x.slice(5).trim()).join('');if(raw==='[DONE]')return {done:true};try{return JSON.parse(raw)}catch{return null}}
-function requestTuning(model,maxTokens=1200){const body={temperature:.88,max_tokens:maxTokens,usage:{include:true},provider:{data_collection:'deny'}};if(model==='qwen/qwen3.8-flash')body.reasoning={effort:'low',exclude:true};return body}
+function requestTuning(model,maxTokens=null){const body={temperature:.88,usage:{include:true},provider:{data_collection:'deny'}};if(Number.isFinite(Number(maxTokens))&&Number(maxTokens)>0)body.max_tokens=Math.floor(Number(maxTokens));if(model==='qwen/qwen3.8-flash')body.reasoning={effort:'low',exclude:true};return body}
 function reasoningTokens(usage){return Number(usage?.completion_tokens_details?.reasoning_tokens??usage?.completionTokensDetails?.reasoningTokens??0)||0}
 async function nonStreamRecovery(messages,model){
- const r=await fetch('https://openrouter.ai/api/v1/chat/completions',{method:'POST',headers:authHeaders(),body:JSON.stringify({model,messages,stream:false,...requestTuning(model,1400)})});
+ const r=await fetch('https://openrouter.ai/api/v1/chat/completions',{method:'POST',headers:authHeaders(),body:JSON.stringify({model,messages,stream:false,...requestTuning(model)})});
  const j=await r.json();if(!r.ok)throw new Error(j?.error?.message||`OpenRouter ${r.status}`);if(j.usage?.cost!=null)trackCost(j.usage.cost);
  const text=j?.choices?.[0]?.message?.content?.trim()||'';if(text)return {text,usage:j.usage||null,recovered:true};
  const fr=j?.choices?.[0]?.finish_reason||'unknown',rt=reasoningTokens(j.usage);throw new Error(`模型连续两次没有返回正文（finish=${fr}${rt?`，reasoning=${rt} tok`:''}）。请再试一次，或临时切换 27B/Max。`)
 }
 async function streamOpenRouter(messages,model,b){
- const r=await fetch('https://openrouter.ai/api/v1/chat/completions',{method:'POST',headers:authHeaders(),body:JSON.stringify({model,messages,stream:true,...requestTuning(model,1200)})});
+ const r=await fetch('https://openrouter.ai/api/v1/chat/completions',{method:'POST',headers:authHeaders(),body:JSON.stringify({model,messages,stream:true,...requestTuning(model)})});
  if(!r.ok){let t=await r.text();throw new Error(`OpenRouter ${r.status}: ${t.slice(0,240)}`)}
  const reader=r.body.getReader(),dec=new TextDecoder();let buf='',out='',usage=null,finishReason='';
  while(true){const {value,done}=await reader.read();if(done)break;buf+=dec.decode(value,{stream:true});buf=buf.replace(/\r\n/g,'\n');let i;while((i=buf.indexOf('\n\n'))>=0){const block=buf.slice(0,i);buf=buf.slice(i+2);const j=parseSSEBlock(block);if(!j)continue;if(j.usage)usage=j.usage;const c=j?.choices?.[0];if(c?.finish_reason)finishReason=c.finish_reason;const txt=c?.delta?.content;if(txt){out+=txt;b.textContent=out;b.classList.remove('typing');scrollBottom()}}}
