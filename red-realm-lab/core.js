@@ -1,7 +1,7 @@
 const $=id=>document.getElementById(id);
 const RK={
   key:'red.realm.orKey', model:'red.realm.model', director:'red.realm.directorModel',
-  seedMemory:'red.realm.seedMemory', seedSummary:'red.realm.seedSummary', seedRecent:'red.realm.seedRecent', seedMeta:'red.realm.seedMeta',
+  seedMemory:'red.realm.seedMemory', seedSummary:'red.realm.seedSummary', seedRecent:'red.realm.seedRecent', seedMeta:'red.realm.seedMeta', profile:'red.realm.profile',
   active:'red.realm.active', daily:'red.realm.daily', novelty:'red.realm.novelty', archives:'red.realm.archives',
   totalCost:'red.realm.costTotal'
 };
@@ -81,6 +81,7 @@ async function streamComplete(messages,model,onText,maxTokens=1300,temp=.9){
 }
 
 function stripUnsafeSeed(memory){
+  // The seed stays local. We only trim pathological size; no content is uploaded to GitHub.
   return String(memory||'').slice(0,60000);
 }
 function validA8Backup(data){return data&&typeof data==='object'&&Array.isArray(data.messages)&&typeof data.memory==='string'}
@@ -93,6 +94,7 @@ async function importA8Backup(file){
   localStorage.setItem(RK.seedSummary,String(data.summary||'').slice(0,12000));
   localStorage.setItem(RK.seedRecent,JSON.stringify(compactSeedMessages(data.messages)));
   localStorage.setItem(RK.seedMeta,JSON.stringify({version:data.version||'RED A8',exportedAt:data.exportedAt||'',messageCount:data.messages.length,sourceModel:data.model||'',importedAt:new Date().toISOString()}));
+  localStorage.removeItem(RK.profile);
   if(data.model&&['qwen/qwen3.8-27b','qwen/qwen3.8-max','qwen/qwen3.8-flash','cognitivecomputations/dolphin-mistral-24b-venice-edition'].includes(data.model)&&!localStorage.getItem(RK.model))localStorage.setItem(RK.model,data.model);
   updateSeedUI();return data;
 }
