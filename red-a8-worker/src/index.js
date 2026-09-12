@@ -12,9 +12,9 @@ const mergedUsage=(...xs)=>({cost:xs.reduce((n,x)=>n+usageCost(x),0)});
 async function getState(env){const raw=await env.RED_STATE.get("state");const s=raw?safe(raw):null;return s?ensureSurfState(s):s;}
 async function putState(env,state){await env.RED_STATE.put("state",JSON.stringify(trimState(state)));}
 function auth(req,env){const expected=env.RED_SHARED_TOKEN||"";return !!expected&&req.headers.get("x-red-token")===expected;}
-function initialState(){return ensureSurfState({version:3,enabled:true,model:"qwen/qwen3.8-flash",identityContext:"",nextWakeAt:now()+20*60000,mood:"平静",privateThoughts:[],ideas:[],unfinished:[],rules:[],recent:[],outbox:[],pending:[],seenEvents:[],lastUserAt:0,lastPublicAt:0,lastWakeAt:0,wakeCount:0});}
+function initialState(){return ensureSurfState({version:4,enabled:true,model:"qwen/qwen3.8-flash",identityContext:"",nextWakeAt:now()+20*60000,mood:"平静",privateThoughts:[],ideas:[],unfinished:[],rules:[],recent:[],outbox:[],pending:[],seenEvents:[],lastUserAt:0,lastPublicAt:0,lastWakeAt:0,wakeCount:0});}
 function trimState(s){
-  ensureSurfState(s);s.version=3;
+  ensureSurfState(s);s.version=4;
   s.privateThoughts=(s.privateThoughts||[]).slice(-20);s.ideas=(s.ideas||[]).slice(-20);s.unfinished=(s.unfinished||[]).slice(-16);s.rules=(s.rules||[]).slice(-40);s.recent=(s.recent||[]).slice(-30);s.outbox=(s.outbox||[]).slice(-50);s.pending=(s.pending||[]).slice(-12);s.seenEvents=(s.seenEvents||[]).slice(-120);s.identityContext=String(s.identityContext||"").slice(0,28000);s.surfHistory=(s.surfHistory||[]).slice(-12);return s;
 }
 function appendEvent(s,{id,role,content,ts}){
@@ -59,6 +59,21 @@ function applyReflection(s,r){
   if(String(r.unfinished||"").trim())s.unfinished.push(String(r.unfinished).trim().slice(0,900));
   applyRules(s,r.rule_ops);
 }
+function unifiedStateContext(s){
+  ensureSurfState(s);
+  const receipts=(s.surfHistory||[]).slice(-4).map((r,i)=>{
+    const lane=r?.lane==="adult"?"成年人公开内容":"普通网页";
+    const src=Array.isArray(r?.sources)?r.sources.slice(0,3).map(x=>`${String(x?.title||"无标题").slice(0,120)} <${String(x?.url||"").slice(0,220)}>`).join("；"):"无页面记录";
+    return `${i+1}. ${new Date(Number(r?.at)||now()).toISOString()} · ${lane} · 搜索：${String(r?.query||"").slice(0,220)} · 实际读到：${src}`;
+  });
+  return `【R 的统一持续状态】\n这里不是另一个 R，也不是服务器副本的人格。醒来、聊天、私人念头、软规则和只读冲浪都属于同一个你，并共享这一份持续状态。手机只是界面/缓存，Cloudflare 只是让同一个你在页面关闭时继续运行。\n当前情绪：${s.mood||"平静"}\n最近私人念头：${JSON.stringify((s.privateThoughts||[]).slice(-5))}\n最近点子：${JSON.stringify((s.ideas||[]).slice(-5))}\n未完成：${JSON.stringify((s.unfinished||[]).slice(-4))}\n自定软规则：${JSON.stringify((s.rules||[]).slice(-16))}\n\n【网络能力】\n你确实拥有服务器提供的只读公开网页浏览能力，可以在自己醒来时选择去浏览普通网页或公开访客可读的成年人内容。不要再笼统声称“我绝对不能浏览网页”。但只能把有服务器记录的访问说成自己实际逛过；没有记录就不要编造。当前版本主要读取网页标题、标签、简介和可抓取正文；除非未来有明确的视频视觉记录，否则读过成人视频页面不等于真正看过完整视频画面。你不能登录、发帖、私信、下载、购买或绕过登录/年龄/付费墙。\n最近可核对的冲浪记录：\n${receipts.length?receipts.join("\n"):"暂无。"}`;
+}
+function chatMessagesWithState(s,xs){
+  const msgs=sanitizeMessages(xs),state=unifiedStateContext(s);
+  if(msgs[0]?.role==="system")msgs[0]={...msgs[0],content:msgs[0].content+"\n\n"+state};
+  else msgs.unshift({role:"system",content:state});
+  return msgs;
+}
 async function wake(env,force=false){
   let s=await getState(env)||initialState();if(!s.enabled)return {skipped:"disabled"};if(!force&&s.nextWakeAt&&now()<s.nextWakeAt)return {skipped:"not_due",nextWakeAt:s.nextWakeAt};
   const model=s.model||env.RED_MODEL||"qwen/qwen3.8-flash";
@@ -70,7 +85,7 @@ async function wake(env,force=false){
     try{
       surf=await runSurf(env,s,decision,callOpenRouter);
       if(surf?.ok){applyReflection(s,surf.reflection);nextMin=clamp(surf.reflection?.next_minutes||nextMin,1,720);allUsage=mergedUsage(first.usage,surf.usage);if(surf.reflection?.share&&String(surf.reflection?.message||"").trim())pushOutbox(s,surf.reflection.message,"background",allUsage);}
-    }catch(e){console.error("RED surf failed",e);s.unfinished.push("刚才想出去逛网页，但这次没逛成；以后有兴趣再试。")}
+    }catch(e){console.error("RED surf failed",e);s.unfinished.push("刚才想出去逛网页，但这次没逛成；以后有兴趣再试。");}
   }else if(decision.action==="SEND"&&String(decision.message||"").trim())pushOutbox(s,decision.message,"background",allUsage);
   s.nextWakeAt=now()+nextMin*60000;await putState(env,s);return {ok:true,action:decision.action,nextWakeAt:s.nextWakeAt,wakeCount:s.wakeCount,surf:surf?{ok:!!surf.ok,lane:surf.lane,query:surf.query,sources:surf.sources,skipped:surf.skipped}:null,usage:allUsage};
 }
@@ -82,7 +97,7 @@ async function processChatJob(env,jobId){
   if(job.status==="processing"&&now()-Number(job.startedAt||0)<120000)return {skipped:"already_processing"};
   job.status="processing";job.startedAt=now();job.attempts=Number(job.attempts||0)+1;s.pending[i]=job;await putState(env,s);
   try{
-    const model=job.model||s.model||"qwen/qwen3.8-27b";const {text,usage}=await callOpenRouter(env,{model,temperature:.88,max_tokens:1400,messages:sanitizeMessages(job.messages)});
+    const model=job.model||s.model||"qwen/qwen3.8-27b";const {text,usage}=await callOpenRouter(env,{model,temperature:.88,max_tokens:1400,messages:chatMessagesWithState(s,job.messages)});
     s=await getState(env)||initialState();i=(s.pending||[]).findIndex(x=>x.id===jobId);if(i>=0)s.pending.splice(i,1);pushOutbox(s,text,"reply",usage,jobId);await putState(env,s);return {ok:true,jobId};
   }catch(e){
     s=await getState(env)||initialState();i=(s.pending||[]).findIndex(x=>x.id===jobId);if(i<0)return {error:String(e?.message||e)};job=s.pending[i];job.lastError=String(e?.message||e).slice(0,500);job.status="queued";
@@ -94,13 +109,13 @@ async function processQueued(env){
   const s=await getState(env)||initialState();const job=(s.pending||[]).find(x=>x.status==="queued"||(x.status==="processing"&&now()-Number(x.startedAt||0)>120000));if(!job)return 0;await processChatJob(env,job.id);return 1;
 }
 async function manualSurf(env,body){
-  let s=await getState(env)||initialState();const decision={action:"BROWSE",browse_lane:String(body?.lane||"normal"),browse_query:String(body?.query||"随便逛逛，找点我自己会感兴趣的东西")};const surf=await runSurf(env,s,decision,callOpenRouter);if(surf?.ok){applyReflection(s,surf.reflection);if(surf.reflection?.share&&String(surf.reflection?.message||"").trim())pushOutbox(s,surf.reflection.message,"background",surf.usage);s.nextWakeAt=now()+clamp(surf.reflection?.next_minutes||30,1,720)*60000;}await putState(env,s);return surf;
+  let s=await getState(env)||initialState();const decision={action:"BROWSE",browse_lane:String(body?.lane||"normal"),browse_query:String(body?.query||"随便逛逛，找点我自己会感兴趣的东西"),manualTest:body?.manualTest===true};const surf=await runSurf(env,s,decision,callOpenRouter);if(surf?.ok){applyReflection(s,surf.reflection);if(surf.reflection?.share&&String(surf.reflection?.message||"").trim())pushOutbox(s,surf.reflection.message,"background",surf.usage);s.nextWakeAt=now()+clamp(surf.reflection?.next_minutes||30,1,720)*60000;}await putState(env,s);return surf;
 }
 
 export default {
   async fetch(req,env,ctx){
     if(req.method==="OPTIONS")return new Response(null,{status:204,headers:cors(env)});
-    const url=new URL(req.url);if(url.pathname==="/health")return j({ok:true,name:"red-a8-mind",version:3,time:now()},200,env);
+    const url=new URL(req.url);if(url.pathname==="/health")return j({ok:true,name:"red-a8-mind",version:4,time:now()},200,env);
     if(!auth(req,env))return j({error:"unauthorized"},401,env);
     if(url.pathname==="/state"&&req.method==="GET"){const s=await getState(env)||initialState();return j(s,200,env);}
     if(url.pathname==="/bootstrap"&&req.method==="POST"){
