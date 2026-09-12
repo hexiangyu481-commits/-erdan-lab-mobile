@@ -1,4 +1,4 @@
-function escapeHTML(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function escapeHTML(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]))}
 function scrollChat(){requestAnimationFrame(()=>{$('chat').scrollTop=$('chat').scrollHeight})}
 function addBubble(role,text,typing=false){
   const row=document.createElement('div');row.className='msg '+role;
@@ -7,13 +7,13 @@ function addBubble(role,text,typing=false){
 function renderSession(active){
   $('chat').innerHTML='';
   const rows=realmHistory.filter(x=>x.sessionId===active.id);
-  if(!rows.length)addBubble('system','门已经打开，但这里还没有留下声音。');
+  if(!rows.length)addBubble('system',active.forming?'门已经关上。里面正在成形……':'门已经打开，但这里还没有留下声音。');
   for(const m of rows)addBubble(m.role,m.content,false);
   updateRealmHeader(active);scrollChat();
 }
 function updateRealmHeader(active){
   $('realmMode').textContent=active.mode==='M'?'M · R 掌权':'S · 你掌权';
-  $('realmSub').textContent=active.mode==='M'?'门后的规则不会提前全部告诉你':'你的输入可以改写房间，R 会把它继续推远';
+  $('realmSub').textContent=active.forming?'世界正在门后成形':(active.mode==='M'?'门后的规则不会提前全部告诉你':'你的输入可以改写房间，R 会把它继续推远');
   $('phaseLabel').textContent='phase · '+(active.state?.phaseLabel||'threshold');
   $('stageSigil').textContent=active.mode==='M'?'◉':'S';
 }
@@ -25,6 +25,7 @@ function showRealm(active){
 }
 function showVeil(mode,text='门正在生成……'){$('veilLetter').textContent=mode;$('veilText').textContent=text;$('veil').classList.remove('hidden')}
 function hideVeil(){$('veil').classList.add('hidden')}
+function setComposerLocked(locked){$('sendBtn').disabled=!!locked;$('input').disabled=!!locked;$('input').placeholder=locked?'门后正在成形……':'在门里说点什么……'}
 function openSettings(){$('settingsSheet').classList.remove('hidden');$('model').value=localStorage.getItem(RK.model)||DEFAULT_MODEL;$('directorModel').value=localStorage.getItem(RK.director)||DEFAULT_DIRECTOR;updateConnectionUI();updateSeedUI()}
 function closeSettings(){$('settingsSheet').classList.add('hidden')}
 function saveModels(){localStorage.setItem(RK.model,$('model').value);localStorage.setItem(RK.director,$('directorModel').value)}
@@ -34,19 +35,39 @@ async function handleImport(file){
   try{const data=await importA8Backup(file);setStatus(`R 连续性已装入 · ${data.messages.length} 条`,true);updateSeedUI()}
   catch(e){console.error(e);alert('导入失败：'+String(e?.message||e));setStatus('备份导入失败')}
 }
+async function finishHydration(active){
+  setComposerLocked(true);
+  try{
+    const ready=await hydrateRealm(active,t=>setStatus(t,true));
+    if(ready?.cancelled)return;
+    const now=loadActiveRealm();if(!now||now.id!==ready.id)return;
+    realmHistory=await dbAll();renderSession(ready);
+    setStatus(ready.hydrationWarning?'神域已打开 · 网络恢复模式':'神域已打开',true);
+  }catch(e){
+    console.error('realm hydration error',e);
+    const now=loadActiveRealm();if(now){now.forming=false;persistActive(now);realmHistory=await dbAll();renderSession(now)}
+    setStatus('门已打开 · 世界暂用本地骨架',true);
+  }finally{setComposerLocked(false)}
+}
 async function enterDoor(mode){
   if(realmBusy)return;
   if(!hasSeed()){openSettings();alert('先把 A8 完整备份导进来。');return}
   if(!getKey()){openSettings();setStatus('先连接 OpenRouter');return}
-  realmBusy=true;showVeil(mode,mode==='M'?'R 正在决定今天门后是什么……':'S 门正在把创世权交给你……');
+  realmBusy=true;showVeil(mode,mode==='M'?'门正在合上……':'S 门正在把创世权交给你……');
   try{
-    const {active,resumed}=await prepareRealm(mode);
-    hideVeil();showRealm(active);setStatus(resumed?'回到今天的神域':'神域已打开',true);
+    if(typeof startRealmShell==='function'){
+      const shell=await startRealmShell(mode);
+      hideVeil();showRealm(shell.active);realmBusy=false;
+      if(shell.needsHydration){setStatus('门已打开 · 世界正在成形',true);await finishHydration(shell.active)}
+      else setStatus(shell.resumed?'回到今天的神域':'神域已打开',true);
+    }else{
+      const {active,resumed}=await prepareRealm(mode);hideVeil();showRealm(active);setStatus(resumed?'回到今天的神域':'神域已打开',true);
+    }
   }catch(e){hideVeil();console.error(e);alert('开门失败：'+String(e?.message||e));setStatus('开门失败')}
-  finally{realmBusy=false}
+  finally{realmBusy=false;hideVeil()}
 }
 async function sendRealm(){
-  if(realmBusy)return;let active=loadActiveRealm();if(!active)return;
+  if(realmBusy)return;let active=loadActiveRealm();if(!active||active.forming)return;
   const text=$('input').value.trim();if(!text)return;
   if(text==='退出神域'||text==='/exit'){await exitRealmNow();return}
   realmBusy=true;$('sendBtn').disabled=true;$('input').value='';$('input').style.height='52px';
@@ -63,7 +84,7 @@ async function sendRealm(){
 async function exitRealmNow(){
   if(realmBusy)return;const active=loadActiveRealm();if(!active){showLobby();return}
   if(!confirm('离开这次神域？\n\nS 门会封存本次世界；M 门今天的盲盒世界会保留，今天再进仍然是同一扇门。'))return;
-  await closeRealmSession(active);showLobby();setStatus('门已关上',!!getKey());
+  await closeRealmSession(active);showLobby();setComposerLocked(false);setStatus('门已关上',!!getKey());
 }
 function updateClock(){const d=new Date();$('worldClock').textContent=d.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit',hour12:false})+' · '+d.toLocaleDateString('zh-CN',{weekday:'short'})}
 
@@ -87,7 +108,11 @@ setInterval(updateClock,1000);updateClock();
     try{await handleOAuthCallback()}catch(e){console.error(e);alert('OpenRouter 连接失败：'+String(e?.message||e))}
     updateConnectionUI();updateSeedUI();
     const active=loadActiveRealm();
-    if(active){await loadSessionHistory(active.id);showRealm(active);setStatus(getKey()?'神域在线':'神域已恢复 · 待连接',!!getKey())}
+    if(active){
+      await loadSessionHistory(active.id);showRealm(active);
+      if(active.forming&&getKey()&&typeof hydrateRealm==='function'){setStatus('恢复未完成的门 · 世界继续成形',true);finishHydration(active)}
+      else setStatus(getKey()?'神域在线':'神域已恢复 · 待连接',!!getKey());
+    }
     else{showLobby();setStatus(getKey()?'REALM LAB 就绪':'待连接 OpenRouter',!!getKey())}
   }catch(e){console.error(e);setStatus('REALM LAB 初始化失败');alert('REALM LAB 初始化失败：'+String(e?.message||e))}
 })();
