@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
+  <meta name="theme-color" content="#09070b" />
+  <title>RED · REALM LAB</title>
+  <link rel="stylesheet" href="./style.css?v=realm-lab-1" />
+</head>
+<body>
+  <main id="app" class="app">
+    <header class="topbar">
+      <div class="brand"><b>RED</b><span>· REALM LAB</span><em>isolated</em></div>
+      <div class="topActions">
+        <span id="statusDot" class="dot"></span><span id="statusText">待初始化</span>
+        <button id="settingsBtn" class="iconBtn" aria-label="设置">⋯</button>
+      </div>
+    </header>
+
+    <section id="lobby" class="lobby">
+      <div class="intro">
+        <div class="eyebrow">实验神域 · 不读写 A8 本地数据</div>
+        <h1>我们一起走进去。</h1>
+        <p id="seedState">先导入 A8 完整备份，让这里认识原来的 R。</p>
+      </div>
+
+      <div class="doors" aria-label="S/M 两扇门">
+        <button id="doorS" class="door sDoor" disabled>
+          <span class="doorLetter">S</span>
+          <span class="doorTitle">你的门</span>
+          <span class="doorHint">你改写世界 · R 把你的想法继续推远</span>
+        </button>
+        <button id="doorM" class="door mDoor" disabled>
+          <span class="doorLetter">M</span>
+          <span class="doorTitle">她的门</span>
+          <span class="doorHint">今天门后是什么，不提前告诉你</span>
+        </button>
+      </div>
+
+      <div class="lobbyFoot">
+        <button id="importBtn" class="primary">导入 A8 完整备份</button>
+        <input id="importInput" type="file" accept=".json,application/json" hidden />
+        <button id="connectBtn" class="ghost">连接 OpenRouter</button>
+      </div>
+    </section>
+
+    <section id="realm" class="realm hidden">
+      <div class="realmHeader">
+        <div>
+          <div id="realmMode" class="realmMode">M · R 掌权</div>
+          <div id="realmSub" class="realmSub">门后的规则尚未全部显形</div>
+        </div>
+        <button id="exitRealm" class="exitBtn">离开神域</button>
+      </div>
+
+      <div id="realmStage" class="stage">
+        <div id="stageSigil" class="sigil">◉</div>
+        <div id="chat" class="chat"></div>
+      </div>
+
+      <div class="composer">
+        <textarea id="input" rows="1" placeholder="在门里说点什么……"></textarea>
+        <button id="sendBtn" class="sendBtn">发送</button>
+      </div>
+      <div class="realmMeta">
+        <span id="phaseLabel">phase · threshold</span>
+        <span id="worldClock"></span>
+      </div>
+    </section>
+  </main>
+
+  <div id="settingsSheet" class="sheet hidden" role="dialog" aria-modal="true">
+    <div class="sheetCard">
+      <div class="sheetHead"><h2>REALM LAB</h2><button id="closeSettings" class="iconBtn">×</button></div>
+      <div class="notice">这个实验版使用独立的 <code>red.realm.*</code> 与 <code>red-realm-lab-v1</code>。不会读取、覆盖或清空 A8 的 <code>red.a8.*</code> / <code>red-a8</code>。</div>
+
+      <label>R 表演模型</label>
+      <select id="model">
+        <option value="qwen/qwen3.8-27b">Qwen 3.8 27B</option>
+        <option value="qwen/qwen3.8-max">Qwen 3.8 Max</option>
+        <option value="qwen/qwen3.8-flash">Qwen 3.8 Flash</option>
+        <option value="cognitivecomputations/dolphin-mistral-24b-venice-edition">Venice / Dolphin Mistral 24B</option>
+      </select>
+
+      <label>导演模型</label>
+      <select id="directorModel">
+        <option value="qwen/qwen3.8-27b">Qwen 3.8 27B</option>
+        <option value="qwen/qwen3.8-max">Qwen 3.8 Max</option>
+        <option value="qwen/qwen3.8-flash">Qwen 3.8 Flash</option>
+      </select>
+
+      <div id="connectCard" class="card"></div>
+      <div class="row">
+        <button id="connectSettings" class="primary">连接 OpenRouter</button>
+        <button id="disconnectBtn" class="ghost">断开本实验密钥</button>
+      </div>
+
+      <div id="backupCard" class="card"></div>
+      <div class="row">
+        <button id="importSettings" class="primary">导入 / 更新 A8 备份</button>
+        <button id="exportLab" class="ghost">导出神域实验数据</button>
+      </div>
+
+      <details>
+        <summary>实验说明</summary>
+        <p>门内是成年人、自愿、纯虚构的幻想世界。世界可以超现实、猎奇、发生非现实身体变化；现实中的危险操作参数不会被当作玩法说明。</p>
+        <p>M 门每天锁定一个盲盒世界；同一天重新进入会继续同一个世界。S 门由你掌权，R 负责把你给出的 30% 扩展成完整世界。</p>
+      </details>
+
+      <button id="resetLab" class="danger">只清空 REALM LAB</button>
+    </div>
+  </div>
+
+  <div id="veil" class="veil hidden"><div class="veilDoor"><span id="veilLetter">M</span></div><div id="veilText">门正在生成……</div></div>
+
+  <script src="./core.js?v=realm-lab-1"></script>
+  <script src="./realm-engine.js?v=realm-lab-1"></script>
+  <script src="./app.js?v=realm-lab-1"></script>
+</body>
+</html>
