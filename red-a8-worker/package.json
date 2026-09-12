@@ -7,6 +7,19 @@
     "dev": "wrangler dev",
     "deploy": "wrangler deploy"
   },
+  "cloudflare": {
+    "bindings": {
+      "OPENROUTER_API_KEY": {
+        "description": "R 后台专用 OpenRouter API Key。请使用单独受限额度的 Key。"
+      },
+      "RED_SHARED_TOKEN": {
+        "description": "A8 与 R 后台之间的私有连接密码。使用 32-64 位随机字符串。"
+      },
+      "RED_STATE": {
+        "description": "R 的 Private Mind、下一次醒来时间、点子、软规则和主动消息队列。"
+      }
+    }
+  },
   "devDependencies": {
     "wrangler": "^4.102.0"
   }
