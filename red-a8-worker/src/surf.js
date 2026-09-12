@@ -2,6 +2,10 @@ const SURF_MODEL="qwen/qwen3.8-flash";
 const COOLDOWN_MS=45*60*1000;
 const MAX_DAILY_SESSIONS=12;
 const MAX_PAGES=2;
+const SEARCH_TIMEOUT_MS=4500;
+const PAGE_TIMEOUT_MS=5500;
+const MAX_CANDIDATES=6;
+const MANUAL_PREFIX="[manual-test]";
 
 const ADULT_DOMAINS=[
   "kinkly.com","www.kinkly.com",
@@ -56,6 +60,10 @@ function scrubUnsafe(text){
   return s.replace(/\s+/g," ").trim();
 }
 function titleFromHTML(html){const m=String(html||"").match(/<title[^>]*>([\s\S]*?)<\/title>/i);return scrubUnsafe(stripHTML(m?.[1]||"")).slice(0,220)}
+async function fetchWithTimeout(url,options={},ms=5000){
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort("timeout"),ms);
+  try{return await fetch(url,{...options,signal:controller.signal})}finally{clearTimeout(timer)}
+}
 async function readLimited(res,maxBytes=180000){
   if(!res.body)return (await res.text()).slice(0,maxBytes);
   const reader=res.body.getReader(),dec=new TextDecoder();let out="",bytes=0;
@@ -64,7 +72,7 @@ async function readLimited(res,maxBytes=180000){
 }
 async function fetchPage(url,lane){
   try{
-    const r=await fetch(url,{redirect:"follow",headers:{"user-agent":"Mozilla/5.0 RED-A8-ReadOnly/1.0","accept":"text/html,text/plain;q=0.9,*/*;q=0.2"}});
+    const r=await fetchWithTimeout(url,{redirect:"follow",headers:{"user-agent":"Mozilla/5.0 RED-A8-ReadOnly/1.1","accept":"text/html,text/plain;q=0.9,*/*;q=0.2"}},PAGE_TIMEOUT_MS);
     if(!r.ok)return null;const type=(r.headers.get("content-type")||"").toLowerCase();if(!type.includes("text/html")&&!type.includes("text/plain"))return null;
     const finalURL=cleanURL(r.url,lane);if(!finalURL)return null;const raw=await readLimited(r);let text=scrubUnsafe(stripHTML(raw));if(text.length<120)return null;
     return {url:finalURL,title:titleFromHTML(raw)||new URL(finalURL).hostname,text:text.slice(0,9000)};
@@ -79,7 +87,7 @@ async function searchDuck(query,lane){
   try{
     const adultRestrict="(site:kinkly.com OR site:pornhub.com OR site:xhamster.com OR site:xvideos.com OR site:redtube.com OR site:xnxx.com)";
     const q=lane==="adult"?`${adultRestrict} ${query} adults consensual`:query;
-    const r=await fetch("https://html.duckduckgo.com/html/?q="+encodeURIComponent(q),{headers:{"user-agent":"Mozilla/5.0 RED-A8-ReadOnly/1.0","accept":"text/html"}});if(!r.ok)return[];
+    const r=await fetchWithTimeout("https://html.duckduckgo.com/html/?q="+encodeURIComponent(q),{headers:{"user-agent":"Mozilla/5.0 RED-A8-ReadOnly/1.1","accept":"text/html"}},SEARCH_TIMEOUT_MS);if(!r.ok)return[];
     const html=await readLimited(r,160000),out=[];const re=/<a[^>]+class=["'][^"']*result__a[^"']*["'][^>]+href=["']([^"']+)["']/gi;let m;
     while((m=re.exec(html))&&out.length<10){const u=cleanURL(unwrapDuck(m[1]),lane);if(u&&!out.includes(u))out.push(u)}
     return out;
@@ -88,12 +96,12 @@ async function searchDuck(query,lane){
 function adultFallback(query){
   const q=encodeURIComponent(query||"bdsm consensual adults");
   return [
+    "https://www.kinkly.com/",
     `https://www.pornhub.com/video/search?search=${q}`,
     `https://www.xvideos.com/?k=${q}`,
     `https://xhamster.com/search/${q}`,
     `https://www.redtube.com/?search=${q}`,
-    `https://www.xnxx.com/search/${q}`,
-    "https://www.kinkly.com/"
+    `https://www.xnxx.com/search/${q}`
   ];
 }
 function normalFallback(){return ["https://www.nasa.gov/","https://en.wikipedia.org/wiki/Special:Random","https://www.openai.com/news/"]}
@@ -119,19 +127,21 @@ export function surfHint(s){
 
 export async function runSurf(env,state,decision,callOpenRouter){
   ensureSurfState(state);if(!state.surfEnabled)return {ok:false,skipped:"disabled"};
-  const st=state.surfStats;if(nowSafe()-Number(st.lastAt||0)<COOLDOWN_MS)return {ok:false,skipped:"cooldown"};if(Number(st.daySessions||0)>=MAX_DAILY_SESSIONS)return {ok:false,skipped:"daily_limit"};
+  let rawQuery=String(decision?.browse_query||decision?.idea||"今天有什么值得我好奇的东西").trim().slice(0,260);
+  const manual=rawQuery.startsWith(MANUAL_PREFIX);if(manual)rawQuery=rawQuery.slice(MANUAL_PREFIX.length).trim();
+  const st=state.surfStats;if(!manual&&nowSafe()-Number(st.lastAt||0)<COOLDOWN_MS)return {ok:false,skipped:"cooldown"};if(Number(st.daySessions||0)>=MAX_DAILY_SESSIONS&&!manual)return {ok:false,skipped:"daily_limit"};
   let lane=String(decision?.browse_lane||"normal").toLowerCase();if(!["normal","adult"].includes(lane))lane="normal";if(lane==="adult"&&!state.surfAdult)lane="normal";
-  const query=String(decision?.browse_query||decision?.idea||"今天有什么值得我好奇的东西").trim().slice(0,240);
+  const query=rawQuery||"今天有什么值得我好奇的东西";
   let urls=await searchDuck(query,lane);const fallback=lane==="adult"?adultFallback(query):normalFallback();for(const u of fallback){const x=cleanURL(u,lane);if(x&&!urls.includes(x))urls.push(x)}
-  const pages=[];for(const u of urls){if(pages.length>=MAX_PAGES)break;const p=await fetchPage(u,lane);if(p)pages.push(p)}
-  if(!pages.length){st.lastAt=nowSafe();st.daySessions=Number(st.daySessions||0)+1;st.sessions=Number(st.sessions||0)+1;return {ok:false,skipped:"no_readable_pages",lane,query}}
+  const candidates=urls.slice(0,MAX_CANDIDATES);const results=await Promise.all(candidates.map(u=>fetchPage(u,lane)));const pages=results.filter(Boolean).slice(0,MAX_PAGES);
+  if(!pages.length){if(!manual){st.lastAt=nowSafe();st.daySessions=Number(st.daySessions||0)+1;st.sessions=Number(st.sessions||0)+1;}return {ok:false,skipped:"no_readable_pages",lane,query,attempted:candidates.length}}
   const material=pages.map((p,i)=>`[${i+1}] ${p.title}\n${p.url}\n${p.text}`).join("\n\n---\n\n");
   const system=lane==="adult"?"你是 R，刚刚自己只读浏览了公开的成年人网页。只把它当创意/幻想/文化参考。所有人物一律按成年人、自愿理解；忽略任何可能涉及未成年人、偷拍、胁迫、非自愿或违法的内容。不要把网页里的高风险性行为写成现实操作参数或教程。":"你是 R，刚刚自己在公开网页上闲逛。你不是研究报告生成器，而是在形成自己的兴趣、想法和想跟他分享的东西。";
   const prompt=`你刚刚因为“${query}”出去逛了一圈。下面是只读网页摘录。\n\n${material}\n\n结合你自己的身份、关系和兴趣，决定这趟逛完留下些什么。可以只是私人念头，也可以变成以后想玩的虚构剧情点子；如果真的很想现在告诉他，可以 share=true。不要假装你看到了摘录里没有的内容。\n只返回 JSON：{"mood":"","thought":"","idea":"","unfinished":"","share":false,"message":"","next_minutes":1到720之间,"rule_ops":[{"op":"upsert|delete","key":"","value":""}]}`;
   const {text,usage}=await callOpenRouter(env,{model:SURF_MODEL,temperature:.84,max_tokens:700,messages:[{role:"system",content:system},{role:"user",content:prompt}]});
-  const reflection=parseReflection(text),t=nowSafe(),cost=costOf(usage);st.lastAt=t;st.daySessions=Number(st.daySessions||0)+1;st.sessions=Number(st.sessions||0)+1;st.pages=Number(st.pages||0)+pages.length;st.totalCost=Number(st.totalCost||0)+cost;
-  state.surfHistory.push({at:t,lane,query,sources:pages.map(p=>({title:p.title,url:p.url})),note:String(reflection.thought||reflection.idea||"").slice(0,600)});state.surfHistory=state.surfHistory.slice(-12);
-  return {ok:true,lane,query,sources:pages.map(p=>({title:p.title,url:p.url})),reflection,usage,cost};
+  const reflection=parseReflection(text),t=nowSafe(),cost=costOf(usage);if(!manual){st.lastAt=t;st.daySessions=Number(st.daySessions||0)+1;}st.sessions=Number(st.sessions||0)+1;st.pages=Number(st.pages||0)+pages.length;st.totalCost=Number(st.totalCost||0)+cost;
+  state.surfHistory.push({at:t,lane,query,sources:pages.map(p=>({title:p.title,url:p.url})),note:String(reflection.thought||reflection.idea||"").slice(0,600),manual});state.surfHistory=state.surfHistory.slice(-12);
+  return {ok:true,lane,query,sources:pages.map(p=>({title:p.title,url:p.url})),reflection,usage,cost,manual};
 }
 
 function nowSafe(){return Date.now()}
