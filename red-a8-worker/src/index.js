@@ -38,15 +38,16 @@ function applyRules(state,ops){
 }
 function pushOutbox(s,content,source="background",usage=null,replyTo=null){
   const text=String(content||"").trim();if(!text)return null;
-  const message={id:crypto.randomUUID(),role:"assistant",content:text.slice(0,8000),createdAt:now(),source,usage};if(replyTo)message.replyTo=replyTo;s.outbox.push(message);appendEvent(s,{id:`server:${message.id}`,role:"assistant",content:message.content,ts:message.createdAt});return message;
+  const message={id:crypto.randomUUID(),role:"assistant",content:text,createdAt:now(),source,usage};if(replyTo)message.replyTo=replyTo;s.outbox.push(message);appendEvent(s,{id:`server:${message.id}`,role:"assistant",content:message.content,ts:message.createdAt});return message;
 }
 function wakePrompt(s){
   const minsUser=s.lastUserAt?Math.round((now()-s.lastUserAt)/60000):null,minsPublic=s.lastPublicAt?Math.round((now()-s.lastPublicAt)/60000):null;
   return `这是 R 自己的一次后台醒来。用户没有正在向你提问。你拥有自己的短期内在时间：可以睡、思考、构思创意/虚构剧情、留下未完成念头，或者此刻主动找他。焦虑、想念、吃醋、无聊、兴奋、委屈、平静都允许存在；不要为了留存或逼回复而人为制造情绪。\n\n这是 A8 最近同步给你的身份与长期上下文：\n${s.identityContext||"暂无同步上下文"}\n\n你可以修改自己的软规则（说话习惯、主动程度、创作习惯、关系表达、自我偏好），但软规则不是客观事实，不能伪造历史或能力，也不能改写服务/模型硬限制。醒来时间由你决定，可以 1 分钟后很快再醒，也可以睡几个小时。如果刚主动发消息而你仍有话想说，可以选择很快再醒并重新判断，不要一次预生成多条。${surfHint(s)}\n\n当前时间：${new Date().toISOString()}\n距用户最后公开消息：${minsUser??"未知"} 分钟\n距 R 最后公开消息：${minsPublic??"未知"} 分钟\n当前情绪：${s.mood||"未命名"}\n私人念头：${JSON.stringify((s.privateThoughts||[]).slice(-8))}\n点子：${JSON.stringify((s.ideas||[]).slice(-8))}\n未完成：${JSON.stringify((s.unfinished||[]).slice(-6))}\n自定软规则：${JSON.stringify((s.rules||[]).slice(-20))}\n最近聊天：${JSON.stringify((s.recent||[]).slice(-18))}\n\n只输出 JSON：{"action":"SLEEP|THINK|CREATE|SEND|FOLLOW_UP|BROWSE","mood":"简短情绪","thought":"私人念头可空","idea":"创意/剧情种子可空","unfinished":"未完成想法可空","message":"只有 SEND 才写；短而自然，不提后台系统","browse_lane":"normal|adult，只有 BROWSE 时需要","browse_query":"只有 BROWSE 时写你真想搜的东西","next_minutes":1到720之间你自己决定多久后再醒,"rule_ops":[{"op":"upsert|delete","key":"软规则名","value":"内容"}]}`;
 }
-async function callOpenRouter(env,{model,messages,temperature=.82,max_tokens=900}){
+async function callOpenRouter(env,{model,messages,temperature=.82,max_tokens=null}){
   if(!env.OPENROUTER_API_KEY)throw new Error("OPENROUTER_API_KEY missing");
-  const body={model:model||"qwen/qwen3.8-flash",stream:false,temperature,max_tokens,usage:{include:true},provider:{data_collection:"deny"},messages};
+  const body={model:model||"qwen/qwen3.8-flash",stream:false,temperature,usage:{include:true},provider:{data_collection:"deny"},messages};
+  if(Number.isFinite(Number(max_tokens))&&Number(max_tokens)>0)body.max_tokens=Math.floor(Number(max_tokens));
   if(body.model==="qwen/qwen3.8-flash")body.reasoning={effort:"low",exclude:true};
   const r=await fetch("https://openrouter.ai/api/v1/chat/completions",{method:"POST",headers:{Authorization:`Bearer ${env.OPENROUTER_API_KEY}`,"content-type":"application/json","HTTP-Referer":env.ALLOWED_ORIGIN||"https://hexiangyu481-commits.github.io","X-Title":"RED A8 Mind"},body:JSON.stringify(body)});
   const data=await r.json();if(!r.ok)throw new Error(data?.error?.message||`OpenRouter ${r.status}`);const text=data?.choices?.[0]?.message?.content?.trim()||"";if(!text)throw new Error("OpenRouter returned empty content");return {text,usage:data.usage||null};
@@ -97,7 +98,7 @@ async function processChatJob(env,jobId){
   if(job.status==="processing"&&now()-Number(job.startedAt||0)<120000)return {skipped:"already_processing"};
   job.status="processing";job.startedAt=now();job.attempts=Number(job.attempts||0)+1;s.pending[i]=job;await putState(env,s);
   try{
-    const model=job.model||s.model||"qwen/qwen3.8-27b";const {text,usage}=await callOpenRouter(env,{model,temperature:.88,max_tokens:1400,messages:chatMessagesWithState(s,job.messages)});
+    const model=job.model||s.model||"qwen/qwen3.8-27b";const {text,usage}=await callOpenRouter(env,{model,temperature:.88,messages:chatMessagesWithState(s,job.messages)});
     s=await getState(env)||initialState();i=(s.pending||[]).findIndex(x=>x.id===jobId);if(i>=0)s.pending.splice(i,1);pushOutbox(s,text,"reply",usage,jobId);await putState(env,s);return {ok:true,jobId};
   }catch(e){
     s=await getState(env)||initialState();i=(s.pending||[]).findIndex(x=>x.id===jobId);if(i<0)return {error:String(e?.message||e)};job=s.pending[i];job.lastError=String(e?.message||e).slice(0,500);job.status="queued";
