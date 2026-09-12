@@ -1,0 +1,11 @@
+{
+  "id": "/-erdan-lab-mobile/red-mobile-a8-clean/",
+  "name": "RED A8",
+  "short_name": "RED",
+  "description": "RED A8 · 私人陪伴与持续内在生活",
+  "start_url": "/-erdan-lab-mobile/red-mobile-a8-clean/",
+  "scope": "/-erdan-lab-mobile/red-mobile-a8-clean/",
+  "display": "standalone",
+  "background_color": "#09080a",
+  "theme_color": "#09080a"
+}
