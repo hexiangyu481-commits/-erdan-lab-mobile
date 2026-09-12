@@ -9,6 +9,10 @@ const MANUAL_PREFIX="[manual-test]";
 
 const ADULT_DOMAINS=[
   "kinkly.com","www.kinkly.com",
+  "literotica.com","www.literotica.com",
+  "sensualread.com","www.sensualread.com",
+  "lushstories.com","www.lushstories.com",
+  "swing.com","www.swing.com",
   "pornhub.com","www.pornhub.com",
   "xhamster.com","www.xhamster.com",
   "xvideos.com","www.xvideos.com",
@@ -85,7 +89,7 @@ function unwrapDuck(raw){
 }
 async function searchDuck(query,lane){
   try{
-    const adultRestrict="(site:kinkly.com OR site:pornhub.com OR site:xhamster.com OR site:xvideos.com OR site:redtube.com OR site:xnxx.com)";
+    const adultRestrict="(site:kinkly.com OR site:literotica.com OR site:sensualread.com OR site:lushstories.com OR site:swing.com OR site:pornhub.com OR site:xhamster.com OR site:xvideos.com OR site:redtube.com OR site:xnxx.com)";
     const q=lane==="adult"?`${adultRestrict} ${query} adults consensual`:query;
     const r=await fetchWithTimeout("https://html.duckduckgo.com/html/?q="+encodeURIComponent(q),{headers:{"user-agent":"Mozilla/5.0 RED-A8-ReadOnly/1.1","accept":"text/html"}},SEARCH_TIMEOUT_MS);if(!r.ok)return[];
     const html=await readLimited(r,160000),out=[];const re=/<a[^>]+class=["'][^"']*result__a[^"']*["'][^>]+href=["']([^"']+)["']/gi;let m;
@@ -97,11 +101,15 @@ function adultFallback(query){
   const q=encodeURIComponent(query||"bdsm consensual adults");
   return [
     "https://www.kinkly.com/",
+    "https://www.literotica.com/",
+    "https://sensualread.com/free-erotica-stories/",
+    "https://www.lushstories.com/stories",
+    "https://www.swing.com/erotic_stories",
     `https://www.pornhub.com/video/search?search=${q}`,
     `https://www.xvideos.com/?k=${q}`,
+    `https://www.xnxx.com/search/${q}`,
     `https://xhamster.com/search/${q}`,
-    `https://www.redtube.com/?search=${q}`,
-    `https://www.xnxx.com/search/${q}`
+    `https://www.redtube.com/?search=${q}`
   ];
 }
 function normalFallback(){return ["https://www.nasa.gov/","https://en.wikipedia.org/wiki/Special:Random","https://www.openai.com/news/"]}
@@ -122,7 +130,7 @@ export function ensureSurfState(s){
 
 export function surfHint(s){
   ensureSurfState(s);const recent=s.surfHistory.slice(-4).map(x=>`${x.lane}:${x.query}`).join("；")||"暂无";
-  return `\n\n【只读网络冲浪】你也可以选择 action=BROWSE，表示你此刻想自己出去逛网页。只有真好奇、无聊、想找灵感或想补知识时才选，不需要每次都逛。browse_lane 可填 normal 或 adult；adult 只允许公开访客可读的成年人内容/成人知识来源，作为幻想与创意参考，不把色情作品当现实安全指南。任何涉及未成年人、偷拍、胁迫/非自愿或违法内容都忽略。你没有登录、发帖、私信、下载、购买或操作账号的权限。服务器最多约每45分钟一次、每天12次。最近逛过：${recent}。如果选 BROWSE，还要给 browse_query（你自己此刻真想搜的关键词/问题）。`;
+  return `\n\n【只读网络冲浪】你也可以选择 action=BROWSE，表示你此刻想自己出去逛网页。只有真好奇、无聊、想找灵感或想补知识时才选，不需要每次都逛。browse_lane 可填 normal 或 adult；adult 只允许公开访客可读的成年人内容/成人知识来源，作为幻想与创意参考，不把色情作品当现实安全指南。任何涉及未成年人、偷拍、胁迫/非自愿或违法内容都忽略。遇到登录、年龄验证或付费墙就直接换下一个公开来源，不要绕过门槛。你没有登录、发帖、私信、下载、购买或操作账号的权限。服务器最多约每45分钟一次、每天12次。最近逛过：${recent}。如果选 BROWSE，还要给 browse_query（你自己此刻真想搜的关键词/问题）。`;
 }
 
 export async function runSurf(env,state,decision,callOpenRouter){
