@@ -1,10 +1,10 @@
-// RED A8 server bridge v1.1
+// RED A8 server bridge v1.2
 // Text chat can be accepted by the Worker immediately, finish after Safari leaves,
 // and sync back on the next foreground. Images keep using the existing direct path.
 (function(){
-  const V='1.1.0';
+  const V='1.2.0';
   const DEFAULT_URL='https://red-a8-mind.hexiangyu481.workers.dev';
-  const S={url:'red.a8.server.url',token:'red.a8.server.token',enabled:'red.a8.server.enabled',boot:'red.a8.server.bootstrappedV1',seen:'red.a8.server.seenV1',surf:'red.a8.server.surfStats'};
+  const S={url:'red.a8.server.url',token:'red.a8.server.token',enabled:'red.a8.server.enabled',boot:'red.a8.server.bootstrappedV1',seen:'red.a8.server.seenV1',surf:'red.a8.server.surfStats',surfHistory:'red.a8.server.surfHistory'};
   const INNER={state:'red.a8.innerLife.state',rules:'red.a8.innerLife.rules',next:'red.a8.innerLife.nextAt',last:'red.a8.innerLife.lastAt',ticks:'red.a8.innerLife.tickCount'};
   let syncBusy=false,syncingFromServer=false,pollTimer=null;
   const directSend=window.send;
@@ -39,7 +39,12 @@
     if(!x||typeof x!=='object')return;
     const old=safeJSON(localStorage.getItem(INNER.state)||'',{})||{};
     const next={...old,mood:x.mood||old.mood||'平静',privateThoughts:Array.isArray(x.privateThoughts)?x.privateThoughts:(old.privateThoughts||[]),ideas:Array.isArray(x.ideas)?x.ideas:(old.ideas||[]),unfinished:Array.isArray(x.unfinished)?x.unfinished:(old.unfinished||[]),lastWakeAt:Number(old.lastWakeAt||0),lastSpokeAt:Number(old.lastSpokeAt||0),updatedAt:new Date().toISOString()};
-    localStorage.setItem(INNER.state,JSON.stringify(next));if(Array.isArray(x.rules))localStorage.setItem(INNER.rules,JSON.stringify(x.rules.slice(-40)));if(Number(x.nextWakeAt))localStorage.setItem(INNER.next,String(x.nextWakeAt));if(Number(x.wakeCount))localStorage.setItem(INNER.ticks,String(x.wakeCount));if(x.surfStats)localStorage.setItem(S.surf,JSON.stringify(x.surfStats));
+    localStorage.setItem(INNER.state,JSON.stringify(next));
+    if(Array.isArray(x.rules))localStorage.setItem(INNER.rules,JSON.stringify(x.rules.slice(-40)));
+    if(Number(x.nextWakeAt))localStorage.setItem(INNER.next,String(x.nextWakeAt));
+    if(Number(x.wakeCount))localStorage.setItem(INNER.ticks,String(x.wakeCount));
+    if(x.surfStats)localStorage.setItem(S.surf,JSON.stringify(x.surfStats));
+    if(Array.isArray(x.surfHistory))localStorage.setItem(S.surfHistory,JSON.stringify(x.surfHistory.slice(-6)));
   }
   async function bootstrap(force=false){
     if(!configured()||(!force&&localStorage.getItem(S.boot)))return false;
