@@ -1,13 +1,16 @@
-// RED A8 server bridge v1.3
+// RED A8 server bridge v1.4
 // Text chat can be accepted by the Worker immediately, finish after Safari leaves,
-// and sync back on the next foreground. Images keep using the existing direct path.
+// and sync back on the next foreground. Rapid text bursts are grouped into one reply.
+// Images keep using the existing direct path.
 (function(){
-  const V='1.3.0';
+  const V='1.4.0';
   const DEFAULT_URL='https://red-a8-mind.hexiangyu481.workers.dev';
+  const CHAT_DEBOUNCE_MS=1100;
   const S={url:'red.a8.server.url',token:'red.a8.server.token',enabled:'red.a8.server.enabled',boot:'red.a8.server.bootstrappedV1',seen:'red.a8.server.seenV1',surf:'red.a8.server.surfStats',surfHistory:'red.a8.server.surfHistory'};
   const INNER={state:'red.a8.innerLife.state',rules:'red.a8.innerLife.rules',next:'red.a8.innerLife.nextAt',last:'red.a8.innerLife.lastAt',ticks:'red.a8.innerLife.tickCount'};
   let syncBusy=false,syncingFromServer=false,pollTimer=null;
   let localSendChain=Promise.resolve(),enqueueChain=Promise.resolve();
+  let chatBatch=[],chatDebounceTimer=null;
   const directSend=window.send;
   const baseBubble=bubble;
   bubble=function(role,text='',typing=false,meta=''){
@@ -77,6 +80,25 @@
   async function enqueueChat({messages,model,userEvent}){
     const jobId=crypto.randomUUID();const data=await request('/chat',{method:'POST',timeout:15000,body:{jobId,model,identityContext:identityContext(),messages,clientUserEvent:userEvent}});return data;
   }
+  function flushChatBatch(){
+    chatDebounceTimer=null;
+    const batch=chatBatch.splice(0);if(!batch.length)return;
+    const last=batch[batch.length-1];
+    enqueueChain=enqueueChain.then(async()=>{
+      await enqueueChat({model:last.model,messages:last.messages,userEvent:{id:`local:${last.userMsg.id}`,role:'user',content:last.text,ts:last.ts}});
+      setStatus(batch.length>1?`R 在想 · 刚才 ${batch.length} 条一起看`:'R 在想 · 你可以继续发，也可以直接关掉',true);
+      setTimeout(()=>syncNow({quiet:true}),2500);
+    }).catch(e=>{
+      console.warn('background send failed',e);
+      setStatus('后台连接抖了一下 · 你的消息已保留');
+    });
+  }
+  function queueChatBatch(x,text){
+    chatBatch.push({...x,text});
+    if(chatDebounceTimer)clearTimeout(chatDebounceTimer);
+    setStatus(chatBatch.length>1?`R 收到了 · 等你这口气说完（${chatBatch.length} 条）`:'R 收到了 · 你可以继续发',true);
+    chatDebounceTimer=setTimeout(flushChatBatch,CHAT_DEBOUNCE_MS);
+  }
   function serverSend(){
     const text=$('input').value.trim();
     if(!text&&!pendingImages.length)return;
@@ -84,7 +106,7 @@
     if(!text)return;
 
     // Plain server text is intentionally NOT tied to the old single-turn `busy` lock.
-    // Clear the composer immediately so the user can fire another message at once.
+    // Clear the composer immediately; a short debounce groups one natural burst into one reply.
     rememberExplicit(text);
     $('input').value='';$('input').style.height='46px';
     setStatus('R 收到了 · 你可以继续发',true);
@@ -100,25 +122,20 @@
       };
     });
 
-    enqueueChain=enqueueChain.then(async()=>{
-      const x=await localTask;
-      await enqueueChat({model:x.model,messages:x.messages,userEvent:{id:`local:${x.userMsg.id}`,role:'user',content:text,ts:x.ts}});
-      setStatus('R 在想 · 你可以继续发，也可以直接关掉',true);
-      setTimeout(()=>syncNow({quiet:true}),2500);
-    }).catch(e=>{
-      console.warn('background send failed',e);
-      setStatus('后台连接抖了一下 · 你的消息已保留');
+    localTask.then(x=>queueChatBatch(x,text)).catch(e=>{
+      console.warn('local send failed',e);
+      setStatus('本地保存抖了一下 · 请重试');
     });
   }
   function setCardStatus(t,ok=false){const el=document.getElementById('serverStatus');if(el){el.textContent=t;el.className='notice '+(ok?'good':'')}}
   async function connectFromUI(){
     const u=document.getElementById('serverUrl')?.value.trim()||DEFAULT_URL,t=document.getElementById('serverToken')?.value.trim()||'';if(!t){alert('先填 RED_SHARED_TOKEN。它就是你刚才在 Cloudflare 保存的同一串私有连接密码。');return}
     localStorage.setItem(S.url,u.replace(/\/+$/,''));localStorage.setItem(S.token,t);localStorage.setItem(S.enabled,'1');setCardStatus('正在验证…');
-    try{await request('/state',{timeout:12000});localStorage.removeItem(S.boot);await syncNow({quiet:true});await bootstrap(true);startPolling();setCardStatus('已连接 · 文字可以连续发 · 发完也可直接切走 · R 可只读冲浪',true);setStatus('R 在线',true)}catch(e){localStorage.setItem(S.enabled,'0');setCardStatus('连接失败：'+String(e?.message||e));alert('连接失败：'+String(e?.message||e))}
+    try{await request('/state',{timeout:12000});localStorage.removeItem(S.boot);await syncNow({quiet:true});await bootstrap(true);startPolling();setCardStatus('已连接 · 文字可以连续发 · 快速连发会合成一轮回复 · 发完也可直接切走 · R 可只读冲浪',true);setStatus('R 在线',true)}catch(e){localStorage.setItem(S.enabled,'0');setCardStatus('连接失败：'+String(e?.message||e));alert('连接失败：'+String(e?.message||e))}
   }
   function installUI(){
     const panel=document.querySelector('#settingsSheet .panel');if(!panel||document.getElementById('serverBridgeCard'))return;
-    const card=document.createElement('div');card.id='serverBridgeCard';card.className='card';card.innerHTML=`<b>R 后台服务器</b><div id="serverStatus" class="notice" style="margin-top:6px">${configured()?'已配置，正在验证…':'尚未在这台设备连接'}</div><div class="field"><label>Worker 地址</label><input id="serverUrl" value="${url()}"></div><div class="field"><label>RED_SHARED_TOKEN · 只存在这台设备</label><input id="serverToken" type="password" autocomplete="off" placeholder="填 Cloudflare 里同一串连接密码"></div><div class="row"><button id="serverConnect" type="button" class="primary">连接 / 验证</button><button id="serverSync" type="button">立即同步</button></div><div class="notice" style="margin-top:7px">连接后：普通文字可以像即时聊天一样连续发送，并交给服务器继续思考；页面随时可以切走。R 的私人醒来、点子、主动消息和只读冲浪也继续由同一个后台状态承接。看图仍走当前前台链路。</div>`;
+    const card=document.createElement('div');card.id='serverBridgeCard';card.className='card';card.innerHTML=`<b>R 后台服务器</b><div id="serverStatus" class="notice" style="margin-top:6px">${configured()?'已配置，正在验证…':'尚未在这台设备连接'}</div><div class="field"><label>Worker 地址</label><input id="serverUrl" value="${url()}"></div><div class="field"><label>RED_SHARED_TOKEN · 只存在这台设备</label><input id="serverToken" type="password" autocomplete="off" placeholder="填 Cloudflare 里同一串连接密码"></div><div class="row"><button id="serverConnect" type="button" class="primary">连接 / 验证</button><button id="serverSync" type="button">立即同步</button></div><div class="notice" style="margin-top:7px">连接后：普通文字可以像即时聊天一样连续发送；快速连发会等一个很短的自然停顿，再作为同一口气生成一次回复，发送框不会锁住。页面随时可以切走。R 的私人醒来、点子、主动消息和只读冲浪也继续由同一个后台状态承接。看图仍走当前前台链路。</div>`;
     const anchor=document.getElementById('saveBtn')?.closest('.row');if(anchor)panel.insertBefore(card,anchor);else panel.appendChild(card);
     document.getElementById('serverToken').value=token();document.getElementById('serverConnect').onclick=connectFromUI;document.getElementById('serverSync').onclick=async()=>{const ok=await syncNow();setCardStatus(ok?'同步完成':'同步失败',ok)};
   }
@@ -132,5 +149,5 @@
   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')syncNow({quiet:true})});window.addEventListener('online',()=>syncNow({quiet:true}));
   window.REDServer={version:V,configured,syncNow,bootstrap,connect:connectFromUI,url};
   installUI();
-  setTimeout(async()=>{if(configured()){await syncNow({quiet:true});try{await bootstrap(false)}catch(e){console.warn('RED server bootstrap skipped',e)}startPolling();setCardStatus('已连接 · 文字可以连续发 · 发完也可直接切走 · R 可只读冲浪',true)}},900);
+  setTimeout(async()=>{if(configured()){await syncNow({quiet:true});try{await bootstrap(false)}catch(e){console.warn('RED server bootstrap skipped',e)}startPolling();setCardStatus('已连接 · 文字可以连续发 · 快速连发会合成一轮回复 · 发完也可直接切走 · R 可只读冲浪',true)}},900);
 })();
