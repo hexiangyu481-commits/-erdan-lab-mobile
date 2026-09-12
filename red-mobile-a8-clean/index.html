@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#09080a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>RED · A8 空档案</title>
+<link rel="stylesheet" href="../red-mobile-a8/style.css?v=multi-usage-1">
+<script>window.RED_PROFILE='migration-clean-v1';</script>
+<script src="../red-mobile-a8/profile-isolation.js?v=1"></script>
+</head>
+<body>
+<div id="app">
+<header><div class="brand"><b>RED</b> · A8 <span class="pill">空档案 · 隔离</span></div><div class="status"><span id="dot" class="dot"></span><span id="status">启动中</span></div></header>
+<div id="chat"></div>
+<div class="composerWrap"><div class="composer">
+<div id="preview" class="preview"><div id="previewGrid" class="previewGrid"></div><div class="previewFooter"><span id="previewCount">0 张图片</span><button id="removeImg" class="tinyBtn">全部移除</button></div></div>
+<textarea id="input" enterkeyhint="send" placeholder="这是隔离空档案；先导入完整备份……"></textarea>
+<div class="actions"><div class="leftActions"><button id="imageBtn" class="tinyBtn">📷 看图</button><button id="drawBtn" class="tinyBtn">🎨 生图</button><button id="quotaBtn" class="tinyBtn">额度</button><button id="settingsBtn" class="tinyBtn">设定</button></div><button id="sendBtn" class="sendBtn">发送</button></div>
+</div></div>
+</div>
+<input id="fileInput" type="file" accept="image/*" multiple>
+
+<div id="settingsSheet" class="sheet"><div class="panel">
+<h2>RED A8 · 隔离空档案</h2>
+<div class="sub">这是迁移保险容器。它使用独立 localStorage 命名空间和独立 IndexedDB，不会读取或覆盖你原来的 RED。正确顺序：在原 RED 导出“完整备份” → 在这里点“导入恢复 RED” → 核对聊天、记忆和 Private Mind → 最后再连接 OpenRouter / 后台服务器。</div>
+<div id="connectCard" class="card"></div>
+<div class="row"><button id="connectBtn" class="primary">连接 OpenRouter</button><button id="disconnectBtn">断开</button></div>
+<div class="field"><label>主聊天模型 · RED 脑子测试</label><select id="model">
+<option value="qwen/qwen3.8-max">① Qwen3.8 Max · 当前质量冠军 · $2/$6M</option>
+<option value="qwen/qwen3.8-27b">② Qwen3.8 27B · 已实测可用 · $0.15/$2M</option>
+<option value="qwen/qwen3.8-flash">③ Qwen3.8 Flash · 新省钱候选 · $0.15/$0.47M</option>
+<option value="cognitivecomputations/dolphin-mistral-24b-venice-edition">Venice Mistral · 备用 · $0.20/$0.90M</option>
+</select></div>
+<div class="field"><label>视觉理解模型</label><select id="visionModel"><option value="qwen/qwen3.8-27b">Qwen3.8 27B · 中文视觉</option></select></div>
+<div class="field"><label>生图模型</label><input id="imageModel" value="meta/muse-image"></div>
+<div class="field"><label>OpenRouter 余额基线（USD，用于本机估算）</label><input id="balanceBase" inputmode="decimal" placeholder="5.00"></div>
+<div class="field"><label>长期记忆 / Memory Core</label><textarea id="memory" placeholder="导入后应显示原 RED 的长期记忆。"></textarea></div>
+<div class="field"><label>人格补充</label><textarea id="persona" placeholder="导入后应显示原 RED 的人格补充。"></textarea></div>
+<div class="field"><label>滚动摘要（自动维护，可手动修正）</label><textarea id="summary" placeholder="导入后应显示原 RED 的滚动摘要。"></textarea></div>
+<div class="row"><button id="saveBtn" class="primary">保存设定</button><button id="closeSettings">关闭</button></div>
+<div class="row"><button id="clearChat">新对话（保留记忆）</button><button id="exportBtn">导出聊天</button></div>
+<div class="notice" style="margin-top:12px">隔离档案不会继承原页面里的 OpenRouter 密钥或 RED_SHARED_TOKEN；这是故意的。先验证备份恢复完整，再重新连接服务。</div>
+</div></div>
+
+<div id="quotaSheet" class="sheet"><div class="panel">
+<h2>额度与消耗</h2><div id="quotaBox" class="card">尚未读取。</div>
+<div class="row"><button id="refreshQuota">刷新</button><button id="openCredits">OpenRouter 充值</button></div>
+<div class="row"><button id="closeQuota">关闭</button></div>
+</div></div>
+
+<script src="../red-mobile-a8/core.js?v=reply-fix-1"></script>
+<script src="../red-mobile-a8/rp-mode.js?v=rp2"></script>
+<script src="../red-mobile-a8/world-context.js?v=world-1"></script>
+<script src="../red-mobile-a8/ui.js?v=multi-usage-1"></script>
+<script src="../red-mobile-a8/backup-restore.js?v=backup-2"></script>
+<script src="../red-mobile-a8/memory-agent.js?v=auto-memory-4"></script>
+<script src="../red-mobile-a8/inner-life.js?v=inner-life-1"></script>
+<script src="../red-mobile-a8/server-bridge.js?v=server-2"></script>
+<script src="../red-mobile-a8/server-mode-guard.js?v=server-guard-1"></script>
+<script src="../red-mobile-a8/surf-test-ui.js?v=surf-test-1"></script>
+</body>
+</html>
