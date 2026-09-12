@@ -1,7 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "red-a8-mind",
-  "main": "src/index.js",
+  "main": "src/entry.js",
   "compatibility_date": "2026-09-12",
   "workers_dev": true,
   "kv_namespaces": [
