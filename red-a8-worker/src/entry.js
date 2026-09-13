@@ -1,6 +1,7 @@
 import core from "./index.js";
 import {publicPushConfig,subscribePush,unsubscribePush,sendPush,notifyNewOutbox} from "./push.js";
 
+const VERSION=16;
 const JSON_HEADERS={"content-type":"application/json; charset=utf-8"};
 // RED uses token-authenticated API routes and no cross-origin cookies. A wildcard
 // origin avoids brittle iOS/PWA Origin matching while RED_SHARED_TOKEN remains
@@ -11,26 +12,35 @@ const cors=()=>({
   "access-control-allow-headers":"content-type,x-red-token",
   "access-control-max-age":"86400"
 });
-const j=(data,status=200,env={})=>new Response(JSON.stringify(data),{status,headers:{...JSON_HEADERS,...cors()}});
+const j=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{...JSON_HEADERS,...cors()}});
 const auth=(req,env)=>!!env.RED_SHARED_TOKEN&&req.headers.get("x-red-token")===env.RED_SHARED_TOKEN;
 const STALLED_CHAT_MS=35000;
 const CHAT_RECEIPT_TTL=30*24*60*60;
 const chatReceiptKey=id=>`chat-receipt:${String(id||'').slice(0,160)}`;
 
 function withCors(res){
-  const out=new Response(res.body,res);
-  for(const [k,v] of Object.entries(cors()))out.headers.set(k,v);
-  return out;
+  const headers=new Headers(res.headers);
+  for(const [k,v] of Object.entries(cors()))headers.set(k,v);
+  return new Response(res.body,{status:res.status,statusText:res.statusText,headers});
 }
 
 async function diagnostic(req,env){
-  if(!auth(req,env))return j({ok:false,error:"unauthorized",version:15},401,env);
+  if(!auth(req,env))return j({ok:false,error:"unauthorized",version:VERSION},401);
   const bindings={redState:!!env.RED_STATE,openRouterKey:!!env.OPENROUTER_API_KEY,sharedToken:!!env.RED_SHARED_TOKEN};
-  if(!bindings.redState)return j({ok:false,error:"RED_STATE missing",version:15,auth:true,bindings},500,env);
+  if(!bindings.redState)return j({ok:false,error:"RED_STATE missing",version:VERSION,auth:true,bindings},500);
   let kvRead=false;
-  try{await env.RED_STATE.get("state");kvRead=true}catch(e){return j({ok:false,error:"RED_STATE unreadable",detail:String(e?.message||e).slice(0,180),version:15,auth:true,bindings,kvRead:false},500,env)}
-  if(!bindings.openRouterKey)return j({ok:false,error:"OPENROUTER_API_KEY missing",version:15,auth:true,bindings,kvRead},500,env);
-  return j({ok:true,name:"red-a8-mind",version:15,auth:true,bindings,kvRead,corsWildcard:true,time:Date.now()},200,env);
+  try{await env.RED_STATE.get("state");kvRead=true}catch(e){return j({ok:false,error:"RED_STATE unreadable",detail:String(e?.message||e).slice(0,180),version:VERSION,auth:true,bindings,kvRead:false},500)}
+  if(!bindings.openRouterKey)return j({ok:false,error:"OPENROUTER_API_KEY missing",version:VERSION,auth:true,bindings,kvRead},500);
+  return j({ok:true,name:"red-a8-mind",version:VERSION,auth:true,bindings,kvRead,corsWildcard:true,time:Date.now()},200);
+}
+
+async function transportDiagnostic(req,env){
+  if(!auth(req,env))return j({ok:false,error:"unauthorized",version:VERSION},401);
+  try{
+    const raw=await req.text();
+    let body={};try{body=raw?JSON.parse(raw):{}}catch{return j({ok:false,error:"invalid_json",version:VERSION,post:true,bytes:raw.length},400)}
+    return j({ok:true,name:"red-a8-mind",version:VERSION,auth:true,post:true,json:true,bytes:new TextEncoder().encode(raw).length,ping:String(body?.ping||"").slice(0,80),time:Date.now()},200);
+  }catch(e){return j({ok:false,error:"transport_read_failed",detail:String(e?.message||e).slice(0,180),version:VERSION,post:true},500)}
 }
 
 function wrappedCtx(ctx,env){
@@ -71,11 +81,10 @@ async function compactChatRequest(req,url){
     const body=await req.clone().json();
     if(Array.isArray(body.messages)){
       let xs=body.messages.filter(x=>x&&["system","user","assistant"].includes(x.role)&&typeof x.content==="string");
-      // identityContext is authoritative on the Worker path; cached old clients may still duplicate it as a system message.
       if(String(body.identityContext||"").trim())xs=xs.filter(x=>x.role!=="system");
-      body.messages=xs.slice(-12).map(x=>({role:x.role,content:String(x.content).slice(0,6000)}));
+      body.messages=xs.slice(-10).map(x=>({role:x.role,content:String(x.content).slice(0,5000)}));
     }
-    if(typeof body.identityContext==="string")body.identityContext=body.identityContext.slice(0,12000);
+    if(typeof body.identityContext==="string")body.identityContext=body.identityContext.slice(0,10000);
     const headers=new Headers(req.headers);headers.set("content-type","application/json");
     return new Request(req.url,{method:req.method,headers,body:JSON.stringify(body)});
   }catch(e){console.warn("RED compact context skipped",String(e?.message||e));return req}
@@ -85,32 +94,45 @@ export default {
   async fetch(req,env,ctx){
     const url=new URL(req.url);
     if(req.method==="OPTIONS")return new Response(null,{status:204,headers:cors()});
-    if(url.pathname==="/health")return j({ok:true,name:"red-a8-mind",version:15,push:true,chatRecovery:true,resumableChat:true,idempotentChatReceipts:true,compactContext:true,serverRecentLimit:12,wakeTrace:true,proactiveFollowUp:true,adultDesire:true,aura:true,auraContinuous:true,auraTextInference:false,peakEvent:true,corsWildcard:true,diagnostic:true,time:Date.now()},200,env);
+    if(url.pathname==="/health")return j({ok:true,name:"red-a8-mind",version:VERSION,push:true,chatRecovery:true,resumableChat:true,idempotentChatReceipts:true,compactContext:true,serverRecentLimit:10,wakeTrace:true,proactiveFollowUp:true,adultDesire:true,aura:true,auraContinuous:true,auraTextInference:false,peakEvent:true,corsWildcard:true,diagnostic:true,postDiagnostic:true,errorBoundary:true,time:Date.now()},200);
     if(url.pathname==="/diagnostic"&&req.method==="GET")return diagnostic(req,env);
+    if(url.pathname==="/diagnostic/transport"&&req.method==="POST")return transportDiagnostic(req,env);
 
-    if(url.pathname.startsWith("/push/")){
-      if(!auth(req,env))return j({error:"unauthorized"},401,env);
-      try{
-        if(url.pathname==="/push/config"&&req.method==="GET")return j(await publicPushConfig(env),200,env);
-        if(url.pathname==="/push/subscribe"&&req.method==="POST"){const body=await req.json();return j(await subscribePush(env,body?.subscription||body),200,env);}
-        if(url.pathname==="/push/unsubscribe"&&req.method==="POST"){const body=await req.json().catch(()=>({}));return j(await unsubscribePush(env,body?.endpoint),200,env);}
-        if(url.pathname==="/push/test"&&req.method==="POST")return j(await sendPush(env,{title:"R",body:"锁屏通知接通了。以后我叫你，你就能收到。",tag:"red-a8-test"}),200,env);
-        return j({error:"not_found"},404,env);
-      }catch(e){return j({error:String(e?.message||e)},500,env)}
+    let stage="route";
+    try{
+      if(url.pathname.startsWith("/push/")){
+        stage="push_auth";
+        if(!auth(req,env))return j({error:"unauthorized"},401);
+        stage="push_route";
+        if(url.pathname==="/push/config"&&req.method==="GET")return j(await publicPushConfig(env),200);
+        if(url.pathname==="/push/subscribe"&&req.method==="POST"){const body=await req.json();return j(await subscribePush(env,body?.subscription||body),200);}
+        if(url.pathname==="/push/unsubscribe"&&req.method==="POST"){const body=await req.json().catch(()=>({}));return j(await unsubscribePush(env,body?.endpoint),200);}
+        if(url.pathname==="/push/test"&&req.method==="POST")return j(await sendPush(env,{title:"R",body:"锁屏通知接通了。以后我叫你，你就能收到。",tag:"red-a8-test"}),200);
+        return j({error:"not_found"},404);
+      }
+
+      stage="receipt";
+      const receipt=await chatReceipt(req,env,url);
+      if(receipt.duplicate)return j({accepted:true,jobId:receipt.jobId,duplicate:true,resumed:true},202);
+
+      stage="compact";
+      const forwarded=await compactChatRequest(req,url);
+      stage="core";
+      const coreRes=await core.fetch(forwarded,env,wrappedCtx(ctx,env));
+      stage="response";
+      const res=withCors(coreRes);
+      if(receipt.jobId&&res.status>=200&&res.status<300){
+        stage="receipt_write";
+        try{await env.RED_STATE.put(chatReceiptKey(receipt.jobId),String(Date.now()),{expirationTtl:CHAT_RECEIPT_TTL})}
+        catch(e){console.warn("RED chat receipt write skipped",String(e?.message||e))}
+      }
+      stage="push_scan";
+      ctx.waitUntil(notifyNewOutbox(env).catch(e=>console.warn("RED push scan skipped",String(e?.message||e))));
+      return res;
+    }catch(e){
+      console.error("RED Worker request failed",stage,e);
+      return j({error:"worker_exception",stage,detail:String(e?.message||e).slice(0,240),version:VERSION,path:url.pathname},500);
     }
-
-    const receipt=await chatReceipt(req,env,url);
-    if(receipt.duplicate)return j({accepted:true,jobId:receipt.jobId,duplicate:true,resumed:true},202,env);
-
-    const forwarded=await compactChatRequest(req,url);
-    const coreRes=await core.fetch(forwarded,env,wrappedCtx(ctx,env));
-    const res=withCors(coreRes);
-    if(receipt.jobId&&res.status>=200&&res.status<300){
-      try{await env.RED_STATE.put(chatReceiptKey(receipt.jobId),String(Date.now()),{expirationTtl:CHAT_RECEIPT_TTL})}
-      catch(e){console.warn("RED chat receipt write skipped",String(e?.message||e))}
-    }
-    ctx.waitUntil(notifyNewOutbox(env).catch(e=>console.warn("RED push scan skipped",String(e?.message||e))));
-    return res;
   },
   async scheduled(event,env,ctx){
     await recoverStalledPending(env);
