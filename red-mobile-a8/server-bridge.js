@@ -1,9 +1,9 @@
-// RED A8 server bridge v1.5.0
+// RED A8 server bridge v1.6.0
 // Text chat can be accepted by the Worker immediately, finish after Safari leaves,
 // and sync back on the next foreground. Rapid text bursts are grouped into one reply.
 // Images keep using the existing direct path. Aura state is mirrored to the same R UI.
 (function(){
-  const V='1.5.0';
+  const V='1.6.0';
   const DEFAULT_URL='https://red-a8-mind.hexiangyu481.workers.dev';
   const CHAT_DEBOUNCE_MS=1100;
   const S={url:'red.a8.server.url',token:'red.a8.server.token',enabled:'red.a8.server.enabled',boot:'red.a8.server.bootstrappedV1',seen:'red.a8.server.seenV1',surf:'red.a8.server.surfStats',surfHistory:'red.a8.server.surfHistory',aura:'red.a8.server.auraState',adult:'red.a8.server.adultState',peak:'red.a8.server.peakEvent'};
@@ -34,7 +34,8 @@
     }finally{clearTimeout(t)}
   }
   function lastTs(role){for(let i=history.length-1;i>=0;i--)if(history[i]?.role===role)return Number(history[i].ts||0)||0;return 0}
-  function identityContext(){try{return String(systemPrompt()).slice(0,28000)}catch{return''}}
+  function identityContext(){try{return String(window.REDContext?.serverIdentityContext?.()||systemPrompt()).slice(0,12000)}catch{return''}}
+  function serverMessages(){try{return window.REDContext?.serverMessages?.()||contextMessages().filter(x=>x.role!=='system').slice(-10)}catch{return[]}}
   function localMind(){
     const st=safeJSON(localStorage.getItem(INNER.state)||'',{})||{},rules=safeJSON(localStorage.getItem(INNER.rules)||'[]',[]);
     return {mood:st.mood||'平静',privateThoughts:Array.isArray(st.privateThoughts)?st.privateThoughts:[],ideas:Array.isArray(st.ideas)?st.ideas:[],unfinished:Array.isArray(st.unfinished)?st.unfinished:[],rules:Array.isArray(rules)?rules:[]};
@@ -56,12 +57,12 @@
   }
   async function bootstrap(force=false){
     if(!configured()||(!force&&localStorage.getItem(S.boot)))return false;
-    const m=localMind();await request('/bootstrap',{method:'POST',body:{enabled:true,model:localStorage.getItem(K.model)||DEFAULT_MAIN,identityContext:identityContext(),recent:history.slice(-30).map(x=>({role:x.role,content:String(x.content||'').slice(0,6000),ts:Number(x.ts)||Date.now()})),...m,lastUserAt:lastTs('user'),lastPublicAt:lastTs('assistant'),surfEnabled:true,surfAdult:true}});
+    const m=localMind();await request('/bootstrap',{method:'POST',body:{enabled:true,model:localStorage.getItem(K.model)||DEFAULT_MAIN,identityContext:identityContext(),recent:history.slice(-14).map(x=>({role:x.role,content:String(x.content||'').slice(0,6000),ts:Number(x.ts)||Date.now()})),...m,lastUserAt:lastTs('user'),lastPublicAt:lastTs('assistant'),surfEnabled:true,surfAdult:true}});
     localStorage.setItem(S.boot,'1');return true;
   }
   async function mirrorEvent(m){
     if(!configured()||syncingFromServer||!m?.content)return;
-    try{await request('/event',{method:'POST',timeout:9000,body:{id:`local:${m.id||crypto.randomUUID()}`,role:m.role,content:m.content,ts:Number(m.ts)||Date.now(),model:localStorage.getItem(K.model)||DEFAULT_MAIN,identityContext:m.role==='user'?identityContext():undefined}})}catch(e){console.warn('RED server event mirror skipped',e)}
+    try{await request('/event',{method:'POST',timeout:9000,body:{id:`local:${m.id||crypto.randomUUID()}`,role:m.role,content:m.content,ts:Number(m.ts)||Date.now(),model:localStorage.getItem(K.model)||DEFAULT_MAIN}})}catch(e){console.warn('RED server event mirror skipped',e)}
   }
   async function syncNow({quiet=false}={}){
     if(!configured()||syncBusy)return false;syncBusy=true;
@@ -114,7 +115,7 @@
     setStatus('R 收到了 · 你可以继续发',true);
     const localTask=localSendChain=localSendChain.then(async()=>{
       const userMsg=await addMessage('user',text);render();scrollBottom(false);
-      return {userMsg,ts:Date.now(),model:localStorage.getItem(K.model)||DEFAULT_MAIN,messages:contextMessages()};
+      return {userMsg,ts:Date.now(),model:localStorage.getItem(K.model)||DEFAULT_MAIN,messages:serverMessages()};
     });
     localTask.then(x=>queueChatBatch(x,text)).catch(e=>{console.warn('local send failed',e);setStatus('本地保存抖了一下 · 请重试');});
   }
