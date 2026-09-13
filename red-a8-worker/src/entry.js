@@ -41,11 +41,27 @@ async function chatReceipt(req,env,url){
   }catch{return {jobId:"",duplicate:false}}
 }
 
+async function compactChatRequest(req,url){
+  if(url.pathname!=="/chat"||req.method!=="POST")return req;
+  try{
+    const body=await req.clone().json();
+    if(Array.isArray(body.messages)){
+      let xs=body.messages.filter(x=>x&&["system","user","assistant"].includes(x.role)&&typeof x.content==="string");
+      // identityContext is authoritative on the Worker path; cached old clients may still duplicate it as a system message.
+      if(String(body.identityContext||"").trim())xs=xs.filter(x=>x.role!=="system");
+      body.messages=xs.slice(-12).map(x=>({role:x.role,content:String(x.content).slice(0,6000)}));
+    }
+    if(typeof body.identityContext==="string")body.identityContext=body.identityContext.slice(0,12000);
+    const headers=new Headers(req.headers);headers.set("content-type","application/json");
+    return new Request(req.url,{method:req.method,headers,body:JSON.stringify(body)});
+  }catch(e){console.warn("RED compact context skipped",String(e?.message||e));return req}
+}
+
 export default {
   async fetch(req,env,ctx){
     const url=new URL(req.url);
     if(req.method==="OPTIONS")return new Response(null,{status:204,headers:cors(env)});
-    if(url.pathname==="/health")return j({ok:true,name:"red-a8-mind",version:12,push:true,chatRecovery:true,resumableChat:true,idempotentChatReceipts:true,wakeTrace:true,proactiveFollowUp:true,adultDesire:true,aura:true,auraContinuous:true,auraTextInference:false,peakEvent:true,time:Date.now()},200,env);
+    if(url.pathname==="/health")return j({ok:true,name:"red-a8-mind",version:13,push:true,chatRecovery:true,resumableChat:true,idempotentChatReceipts:true,compactContext:true,serverRecentLimit:12,wakeTrace:true,proactiveFollowUp:true,adultDesire:true,aura:true,auraContinuous:true,auraTextInference:false,peakEvent:true,time:Date.now()},200,env);
 
     if(url.pathname.startsWith("/push/")){
       if(!auth(req,env))return j({error:"unauthorized"},401,env);
@@ -61,7 +77,8 @@ export default {
     const receipt=await chatReceipt(req,env,url);
     if(receipt.duplicate)return j({accepted:true,jobId:receipt.jobId,duplicate:true,resumed:true},202,env);
 
-    const res=await core.fetch(req,env,wrappedCtx(ctx,env));
+    const forwarded=await compactChatRequest(req,url);
+    const res=await core.fetch(forwarded,env,wrappedCtx(ctx,env));
     if(receipt.jobId&&res.status>=200&&res.status<300){
       try{await env.RED_STATE.put(chatReceiptKey(receipt.jobId),String(Date.now()),{expirationTtl:CHAT_RECEIPT_TTL})}
       catch(e){console.warn("RED chat receipt write skipped",String(e?.message||e))}
