@@ -2,12 +2,26 @@ import core from "./index.js";
 import {publicPushConfig,subscribePush,unsubscribePush,sendPush,notifyNewOutbox} from "./push.js";
 
 const JSON_HEADERS={"content-type":"application/json; charset=utf-8"};
-const cors=(env)=>({"access-control-allow-origin":env.ALLOWED_ORIGIN||"*","access-control-allow-methods":"GET,POST,OPTIONS","access-control-allow-headers":"content-type,x-red-token"});
-const j=(data,status=200,env={})=>new Response(JSON.stringify(data),{status,headers:{...JSON_HEADERS,...cors(env)}});
+// RED uses token-authenticated API routes and no cross-origin cookies. A wildcard
+// origin avoids brittle iOS/PWA Origin matching while RED_SHARED_TOKEN remains
+// the authorization boundary for every private route.
+const cors=()=>({
+  "access-control-allow-origin":"*",
+  "access-control-allow-methods":"GET,POST,OPTIONS",
+  "access-control-allow-headers":"content-type,x-red-token",
+  "access-control-max-age":"86400"
+});
+const j=(data,status=200,env={})=>new Response(JSON.stringify(data),{status,headers:{...JSON_HEADERS,...cors()}});
 const auth=(req,env)=>!!env.RED_SHARED_TOKEN&&req.headers.get("x-red-token")===env.RED_SHARED_TOKEN;
 const STALLED_CHAT_MS=35000;
 const CHAT_RECEIPT_TTL=30*24*60*60;
 const chatReceiptKey=id=>`chat-receipt:${String(id||'').slice(0,160)}`;
+
+function withCors(res){
+  const out=new Response(res.body,res);
+  for(const [k,v] of Object.entries(cors()))out.headers.set(k,v);
+  return out;
+}
 
 function wrappedCtx(ctx,env){
   return {
@@ -60,8 +74,8 @@ async function compactChatRequest(req,url){
 export default {
   async fetch(req,env,ctx){
     const url=new URL(req.url);
-    if(req.method==="OPTIONS")return new Response(null,{status:204,headers:cors(env)});
-    if(url.pathname==="/health")return j({ok:true,name:"red-a8-mind",version:13,push:true,chatRecovery:true,resumableChat:true,idempotentChatReceipts:true,compactContext:true,serverRecentLimit:12,wakeTrace:true,proactiveFollowUp:true,adultDesire:true,aura:true,auraContinuous:true,auraTextInference:false,peakEvent:true,time:Date.now()},200,env);
+    if(req.method==="OPTIONS")return new Response(null,{status:204,headers:cors()});
+    if(url.pathname==="/health")return j({ok:true,name:"red-a8-mind",version:14,push:true,chatRecovery:true,resumableChat:true,idempotentChatReceipts:true,compactContext:true,serverRecentLimit:12,wakeTrace:true,proactiveFollowUp:true,adultDesire:true,aura:true,auraContinuous:true,auraTextInference:false,peakEvent:true,corsWildcard:true,time:Date.now()},200,env);
 
     if(url.pathname.startsWith("/push/")){
       if(!auth(req,env))return j({error:"unauthorized"},401,env);
@@ -78,7 +92,8 @@ export default {
     if(receipt.duplicate)return j({accepted:true,jobId:receipt.jobId,duplicate:true,resumed:true},202,env);
 
     const forwarded=await compactChatRequest(req,url);
-    const res=await core.fetch(forwarded,env,wrappedCtx(ctx,env));
+    const coreRes=await core.fetch(forwarded,env,wrappedCtx(ctx,env));
+    const res=withCors(coreRes);
     if(receipt.jobId&&res.status>=200&&res.status<300){
       try{await env.RED_STATE.put(chatReceiptKey(receipt.jobId),String(Date.now()),{expirationTtl:CHAT_RECEIPT_TTL})}
       catch(e){console.warn("RED chat receipt write skipped",String(e?.message||e))}
