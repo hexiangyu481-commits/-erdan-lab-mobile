@@ -1,7 +1,7 @@
-// RED A8 server bridge v1.9.0
+// RED A8 server bridge v1.10.0
 // One transport path owns chat delivery, retry, sync and diagnostics.
 (function(){
-  const V='1.9.0';
+  const V='1.10.0';
   const DEFAULT_URL='https://red-a8-mind.hexiangyu481.workers.dev';
   const CHAT_DEBOUNCE_MS=1100;
   const S={url:'red.a8.server.url',token:'red.a8.server.token',enabled:'red.a8.server.enabled',boot:'red.a8.server.bootstrappedV1',seen:'red.a8.server.seenV1',surf:'red.a8.server.surfStats',surfHistory:'red.a8.server.surfHistory',aura:'red.a8.server.auraState',adult:'red.a8.server.adultState',peak:'red.a8.server.peakEvent'};
@@ -30,8 +30,6 @@
     const c=new AbortController(),t=setTimeout(()=>c.abort(),timeout);
     try{
       const init={method,headers:headers(),body:body===undefined?undefined:JSON.stringify(body),signal:c.signal,cache:'no-store'};
-      // WebKit has had edge cases around keepalive request limits. Do not even set
-      // the option unless we actually need a page-hide best-effort flush.
       if(keepalive===true)init.keepalive=true;
       const r=await fetch(url()+path,init);
       let data=null;try{data=await r.json()}catch{}
@@ -44,21 +42,12 @@
     catch(e){return {ok:false,error:errText(e)}}finally{clearTimeout(t)}
   }
   async function probeDiagnostic(timeout=6500){
-    try{
-      const d=await request('/diagnostic',{timeout});
-      return {ok:!!d?.ok,version:d?.version||null,data:d};
-    }catch(e){
-      const h=await probeHealth();
-      return {ok:false,status:Number(e?.status||0),error:errText(e),data:e?.data||null,workerOnline:!!h.ok,version:h.version||null,healthError:h.error||''};
-    }
+    try{const d=await request('/diagnostic',{timeout});return {ok:!!d?.ok,version:d?.version||null,data:d}}
+    catch(e){const h=await probeHealth();return {ok:false,status:Number(e?.status||0),error:errText(e),data:e?.data||null,workerOnline:!!h.ok,version:h.version||null,healthError:h.error||''}}
   }
   async function probeTransport(timeout=6500){
-    try{
-      const d=await request('/diagnostic/transport',{method:'POST',timeout,body:{ping:'red-a8-post'}});
-      return {ok:!!d?.ok&&d?.post===true,version:d?.version||null,data:d};
-    }catch(e){
-      return {ok:false,status:Number(e?.status||0),error:errText(e),data:e?.data||null};
-    }
+    try{const d=await request('/diagnostic/transport',{method:'POST',timeout,body:{ping:'red-a8-post'}});return {ok:!!d?.ok&&d?.post===true,version:d?.version||null,data:d}}
+    catch(e){return {ok:false,status:Number(e?.status||0),error:errText(e),data:e?.data||null}}
   }
   function diagnosticLabel(d){
     if(d?.ok)return `Worker v${d.version||'?'} · 鉴权 / KV / Key 配置通过`;
@@ -82,12 +71,8 @@
     const d=await qOpen();await new Promise((resolve,reject)=>{const t=d.transaction(QSTORE,'readwrite'),r=t.objectStore(QSTORE).put(item);r.onsuccess=()=>resolve();r.onerror=()=>reject(r.error)});
     const xs=(await qAll()).sort((a,b)=>Number(a.createdAt||0)-Number(b.createdAt||0));for(const old of xs.slice(0,Math.max(0,xs.length-MAX_QUEUE)))await qDel(old.jobId);
   }
-  async function persistJob(job){
-    const old=await qGet(job.jobId);await qPut({...job,createdAt:Number(old?.createdAt||job.createdAt||Date.now()),attempts:Number(old?.attempts||0),lastAttemptAt:Number(old?.lastAttemptAt||0),lastError:String(old?.lastError||'').slice(0,240),blockedStatus:Number(old?.blockedStatus||0)});
-  }
-  async function persistBestEffort(job,wait=true){
-    try{const p=persistJob(job);if(wait)await Promise.race([p,new Promise(r=>setTimeout(r,350))]);else p.catch(e=>console.warn('RED queue persist skipped',e))}catch(e){console.warn('RED queue persist failed open',e)}
-  }
+  async function persistJob(job){const old=await qGet(job.jobId);await qPut({...job,createdAt:Number(old?.createdAt||job.createdAt||Date.now()),attempts:Number(old?.attempts||0),lastAttemptAt:Number(old?.lastAttemptAt||0),lastError:String(old?.lastError||'').slice(0,240),blockedStatus:Number(old?.blockedStatus||0)})}
+  async function persistBestEffort(job,wait=true){try{const p=persistJob(job);if(wait)await Promise.race([p,new Promise(r=>setTimeout(r,350))]);else p.catch(e=>console.warn('RED queue persist skipped',e))}catch(e){console.warn('RED queue persist failed open',e)}}
   async function qMark(id,e,status=0){try{const x=await qGet(id);if(!x)return;x.attempts=Number(x.attempts||0)+1;x.lastAttemptAt=Date.now();x.lastError=errText(e).slice(0,240);x.blockedStatus=Number(status||0);await qPut(x)}catch(err){console.warn('RED queue mark skipped',err)}}
   function backoff(x){return Math.min(30000,1200*Math.pow(1.7,Math.min(6,Number(x?.attempts||0))))}
   async function migrateOldQueue(){try{const raw=localStorage.getItem(OLD_QUEUE);if(!raw)return;const xs=JSON.parse(raw);if(Array.isArray(xs))for(const x of xs)if(x?.jobId&&x?.body)try{await persistJob(x)}catch{};localStorage.removeItem(OLD_QUEUE)}catch(e){console.warn('RED old queue migration skipped',e)}}
@@ -98,18 +83,10 @@
     let xs=[];try{xs=window.REDContext?.serverMessages?.()||contextMessages().filter(x=>x.role!=='system').slice(-10)}catch{return[]}
     if(!Array.isArray(xs))return[];
     const out=[];let budget=26000;
-    for(let i=xs.length-1;i>=0&&out.length<10&&budget>0;i--){
-      const x=xs[i];if(!x||!["user","assistant"].includes(x.role))continue;
-      const text=String(x.content||'');if(!text)continue;
-      const part=text.slice(Math.max(0,text.length-Math.min(5000,budget)));
-      budget-=part.length;out.push({role:x.role,content:part});
-    }
+    for(let i=xs.length-1;i>=0&&out.length<10&&budget>0;i--){const x=xs[i];if(!x||!["user","assistant"].includes(x.role))continue;const text=String(x.content||'');if(!text)continue;const part=text.slice(Math.max(0,text.length-Math.min(5000,budget)));budget-=part.length;out.push({role:x.role,content:part})}
     return out.reverse();
   }
-  function localMind(){
-    const st=safeJSON(localStorage.getItem(INNER.state)||'',{})||{},rules=safeJSON(localStorage.getItem(INNER.rules)||'[]',[]);
-    return {mood:st.mood||'平静',privateThoughts:Array.isArray(st.privateThoughts)?st.privateThoughts:[],ideas:Array.isArray(st.ideas)?st.ideas:[],unfinished:Array.isArray(st.unfinished)?st.unfinished:[],rules:Array.isArray(rules)?rules:[]};
-  }
+  function localMind(){const st=safeJSON(localStorage.getItem(INNER.state)||'',{})||{},rules=safeJSON(localStorage.getItem(INNER.rules)||'[]',[]);return {mood:st.mood||'平静',privateThoughts:Array.isArray(st.privateThoughts)?st.privateThoughts:[],ideas:Array.isArray(st.ideas)?st.ideas:[],unfinished:Array.isArray(st.unfinished)?st.unfinished:[],rules:Array.isArray(rules)?rules:[]}}
   function applyServerState(x){
     if(!x||typeof x!=='object')return;
     const old=safeJSON(localStorage.getItem(INNER.state)||'',{})||{};
@@ -131,20 +108,24 @@
     localStorage.setItem(S.boot,'1');return true;
   }
   async function mirrorEvent(m){
-    if(!configured()||syncingFromServer||!m?.content)return;
+    // Normal user text is already carried by /chat as clientUserEvent. Mirroring it
+    // separately was a redundant KV write. Keep this only for direct assistant turns.
+    if(!configured()||syncingFromServer||m?.role!=='assistant'||!m?.content)return;
     try{await request('/event',{method:'POST',timeout:9000,body:{id:`local:${m.id||crypto.randomUUID()}`,role:m.role,content:m.content,ts:Number(m.ts)||Date.now(),model:localStorage.getItem(K.model)||DEFAULT_MAIN}})}catch(e){console.warn('RED server event mirror skipped',e)}
   }
   async function syncNow({quiet=false}={}){
     if(!configured()||syncBusy)return false;syncBusy=true;
     try{
-      const data=await request('/sync',{timeout:12000}),xs=Array.isArray(data?.messages)?data.messages:[],known=seen(),knownSet=new Set(known);const ack=[];let added=0,lastText='';
+      const data=await request('/sync',{timeout:12000}),xs=Array.isArray(data?.messages)?data.messages:[],known=seen(),knownSet=new Set(known);let added=0,lastText='';
       applyServerState(data?.state);
       for(const m of xs){
-        if(!m?.id)continue;ack.push(m.id);if(knownSet.has(m.id))continue;known.push(m.id);knownSet.add(m.id);
-        if(m.role==='assistant'&&m.content){syncingFromServer=true;try{await addMessage('assistant',String(m.content),'');if(m.usage?.cost!=null)trackCost(m.usage.cost);lastText=String(m.content);added++;}finally{syncingFromServer=false}}
+        if(!m?.id)continue;if(knownSet.has(m.id))continue;known.push(m.id);knownSet.add(m.id);
+        if(m.role==='assistant'&&m.content){syncingFromServer=true;try{await addMessage('assistant',String(m.content),'');if(m.usage?.cost!=null)trackCost(m.usage.cost);lastText=String(m.content);added++}finally{syncingFromServer=false}}
         else if(m.source==='error')setStatus('回复失败 · 打开页面可重试');
       }
-      saveSeen(known);if(ack.length)try{await request('/ack',{method:'POST',body:{ids:ack},timeout:9000})}catch(e){console.warn('RED server ack skipped',e)}
+      // No /ack write here: local seen ids already prevent duplicate display. The
+      // server trims outbox on later state writes, saving one KV write per sync.
+      saveSeen(known);
       if(added){render();scrollBottom(false);setStatus(added>1?`R 回来了 · ${added} 条新消息`:'R 回来了',true);maybeSummarize();try{if(document.visibilityState!=='visible'&&'Notification'in window&&Notification.permission==='granted')new Notification('R',{body:lastText.slice(0,140)})}catch{}}
       else if(!quiet&&Array.isArray(data?.pending)&&data.pending.length)setStatus('R 在想 · 你可以继续发，也可以先关掉',true);
       return true;
@@ -154,9 +135,21 @@
 
   async function deliverJob(job,{keepalive=false,resume=false}={}){
     try{
-      const data=await request('/chat',{method:'POST',timeout:15000,keepalive,body:job.body});
+      // Normal queued chat returns immediately; KV-write-limit fallback may answer
+      // synchronously, so allow the model enough time instead of aborting at 15s.
+      const data=await request('/chat',{method:'POST',timeout:45000,keepalive,body:job.body});
       try{await qDel(job.jobId)}catch{}
-      try{window.dispatchEvent(new CustomEvent('red:transport-ok',{detail:{path:'/chat',at:Date.now()}}))}catch{}
+      if(data?.reply){
+        syncingFromServer=true;
+        try{
+          await addMessage('assistant',String(data.reply),'');
+          if(data?.usage?.cost!=null)trackCost(data.usage.cost);
+          applyServerState(data.state);
+          render();scrollBottom(false);maybeSummarize();
+          setStatus(data.degraded?'R 回来了 · KV 写配额暂满，已用同一后台无写入续聊':'R 回来了',true);
+        }finally{syncingFromServer=false}
+      }
+      try{window.dispatchEvent(new CustomEvent('red:transport-ok',{detail:{path:'/chat',degraded:!!data?.degraded,at:Date.now()}}))}catch{}
       return data;
     }catch(e){
       await qMark(job.jobId,e,e?.status||0);
@@ -191,7 +184,8 @@
     const batch=chatBatch.splice(0);if(!batch.length)return;
     const last=batch[batch.length-1];
     enqueueChain=enqueueChain.then(async()=>{
-      await enqueueChat({model:last.model,messages:last.messages,userEvent:{id:`local:${last.userMsg.id}`,role:'user',content:last.text,ts:last.ts},keepalive});
+      const data=await enqueueChat({model:last.model,messages:last.messages,userEvent:{id:`local:${last.userMsg.id}`,role:'user',content:last.text,ts:last.ts},keepalive});
+      if(data?.reply)return;
       setStatus(batch.length>1?`R 在想 · 刚才 ${batch.length} 条一起看`:'R 在想 · 你可以继续发，也可以直接关掉',true);
       setTimeout(()=>syncNow({quiet:true}),1200);
     }).catch(e=>console.warn('background send queued for retry',e));
@@ -218,13 +212,14 @@
     try{
       localStorage.removeItem(S.boot);
       const synced=await syncNow({quiet:true});if(!synced)throw new Error('同步接口未通过');
-      await bootstrap(true);startPolling();await resumeQueue({quiet:true});
+      try{await bootstrap(true)}catch(e){if(!String(e?.message||e).includes('KV put() limit exceeded'))throw e}
+      startPolling();await resumeQueue({quiet:true});
       setCardStatus(`已连接 · ${diagnosticLabel(d)} · POST transport 通过 · 单一 R transport`,true);setStatus('R 在线 · 后台完整自检通过',true);
     }catch(e){setCardStatus(`${diagnosticLabel(d)} · POST transport 通过 · 初始化未完成（${errText(e)}）`);setStatus('Worker 已通过自检，但同步初始化还没完成')}
   }
   function installUI(){
     const panel=document.querySelector('#settingsSheet .panel');if(!panel||document.getElementById('serverBridgeCard'))return;
-    const card=document.createElement('div');card.id='serverBridgeCard';card.className='card';card.innerHTML=`<b>R 后台服务器</b><div id="serverStatus" class="notice" style="margin-top:6px">${configured()?'已配置，正在做完整自检…':'尚未在这台设备连接'}</div><div class="field"><label>Worker 地址</label><input id="serverUrl" value="${url()}"></div><div class="field"><label>RED_SHARED_TOKEN · 只存在这台设备</label><input id="serverToken" type="password" autocomplete="off"></div><div class="row"><button id="serverConnect" type="button" class="primary">连接 / 验证</button><button id="serverSync" type="button">立即同步</button></div><div class="notice" style="margin-top:7px">绿灯必须同时通过：Worker、连接密码、KV、OpenRouter Key、POST transport 和同步。发送消息不会再每次先做连接探测。</div>`;
+    const card=document.createElement('div');card.id='serverBridgeCard';card.className='card';card.innerHTML=`<b>R 后台服务器</b><div id="serverStatus" class="notice" style="margin-top:6px">${configured()?'已配置，正在做完整自检…':'尚未在这台设备连接'}</div><div class="field"><label>Worker 地址</label><input id="serverUrl" value="${url()}"></div><div class="field"><label>RED_SHARED_TOKEN · 只存在这台设备</label><input id="serverToken" type="password" autocomplete="off"></div><div class="row"><button id="serverConnect" type="button" class="primary">连接 / 验证</button><button id="serverSync" type="button">立即同步</button></div><div class="notice" style="margin-top:7px">绿灯检查 Worker、连接密码、KV、OpenRouter Key、POST transport 和同步。KV 当日写入额度耗尽时，同一个 Worker 会自动进入无写入续聊，不切换人格。</div>`;
     const anchor=document.getElementById('saveBtn')?.closest('.row');if(anchor)panel.insertBefore(card,anchor);else panel.appendChild(card);
     document.getElementById('serverToken').value=token();document.getElementById('serverConnect').onclick=connectFromUI;document.getElementById('serverSync').onclick=async()=>{const d=await probeDiagnostic(6500);if(!d.ok){setCardStatus(diagnosticLabel(d));return}const p=await probeTransport(6500);if(!p.ok){setCardStatus(`${diagnosticLabel(d)} · POST transport 失败（${p.error||'未知'}）`);return}const ok=await syncNow();setCardStatus(ok?`同步完成 · ${diagnosticLabel(d)} · POST transport 通过`:`${diagnosticLabel(d)} · POST transport 通过 · 同步失败`,ok)};
   }
