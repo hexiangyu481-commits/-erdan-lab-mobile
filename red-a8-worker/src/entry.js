@@ -23,6 +23,16 @@ function withCors(res){
   return out;
 }
 
+async function diagnostic(req,env){
+  if(!auth(req,env))return j({ok:false,error:"unauthorized",version:15},401,env);
+  const bindings={redState:!!env.RED_STATE,openRouterKey:!!env.OPENROUTER_API_KEY,sharedToken:!!env.RED_SHARED_TOKEN};
+  if(!bindings.redState)return j({ok:false,error:"RED_STATE missing",version:15,auth:true,bindings},500,env);
+  let kvRead=false;
+  try{await env.RED_STATE.get("state");kvRead=true}catch(e){return j({ok:false,error:"RED_STATE unreadable",detail:String(e?.message||e).slice(0,180),version:15,auth:true,bindings,kvRead:false},500,env)}
+  if(!bindings.openRouterKey)return j({ok:false,error:"OPENROUTER_API_KEY missing",version:15,auth:true,bindings,kvRead},500,env);
+  return j({ok:true,name:"red-a8-mind",version:15,auth:true,bindings,kvRead,corsWildcard:true,time:Date.now()},200,env);
+}
+
 function wrappedCtx(ctx,env){
   return {
     waitUntil(p){ctx.waitUntil(Promise.resolve(p).then(async value=>{try{await notifyNewOutbox(env)}catch(e){console.warn("RED post-task push skipped",String(e?.message||e))}return value}))},
@@ -75,7 +85,8 @@ export default {
   async fetch(req,env,ctx){
     const url=new URL(req.url);
     if(req.method==="OPTIONS")return new Response(null,{status:204,headers:cors()});
-    if(url.pathname==="/health")return j({ok:true,name:"red-a8-mind",version:14,push:true,chatRecovery:true,resumableChat:true,idempotentChatReceipts:true,compactContext:true,serverRecentLimit:12,wakeTrace:true,proactiveFollowUp:true,adultDesire:true,aura:true,auraContinuous:true,auraTextInference:false,peakEvent:true,corsWildcard:true,time:Date.now()},200,env);
+    if(url.pathname==="/health")return j({ok:true,name:"red-a8-mind",version:15,push:true,chatRecovery:true,resumableChat:true,idempotentChatReceipts:true,compactContext:true,serverRecentLimit:12,wakeTrace:true,proactiveFollowUp:true,adultDesire:true,aura:true,auraContinuous:true,auraTextInference:false,peakEvent:true,corsWildcard:true,diagnostic:true,time:Date.now()},200,env);
+    if(url.pathname==="/diagnostic"&&req.method==="GET")return diagnostic(req,env);
 
     if(url.pathname.startsWith("/push/")){
       if(!auth(req,env))return j({error:"unauthorized"},401,env);
