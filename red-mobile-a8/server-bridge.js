@@ -1,7 +1,7 @@
-// RED A8 server bridge v1.8.0
+// RED A8 server bridge v1.9.0
 // One transport path owns chat delivery, retry, sync and diagnostics.
 (function(){
-  const V='1.8.0';
+  const V='1.9.0';
   const DEFAULT_URL='https://red-a8-mind.hexiangyu481.workers.dev';
   const CHAT_DEBOUNCE_MS=1100;
   const S={url:'red.a8.server.url',token:'red.a8.server.token',enabled:'red.a8.server.enabled',boot:'red.a8.server.bootstrappedV1',seen:'red.a8.server.seenV1',surf:'red.a8.server.surfStats',surfHistory:'red.a8.server.surfHistory',aura:'red.a8.server.auraState',adult:'red.a8.server.adultState',peak:'red.a8.server.peakEvent'};
@@ -29,9 +29,13 @@
   async function request(path,{method='GET',body,timeout=12000,keepalive=false}={}){
     const c=new AbortController(),t=setTimeout(()=>c.abort(),timeout);
     try{
-      const r=await fetch(url()+path,{method,headers:headers(),body:body===undefined?undefined:JSON.stringify(body),signal:c.signal,keepalive});
+      const init={method,headers:headers(),body:body===undefined?undefined:JSON.stringify(body),signal:c.signal,cache:'no-store'};
+      // WebKit has had edge cases around keepalive request limits. Do not even set
+      // the option unless we actually need a page-hide best-effort flush.
+      if(keepalive===true)init.keepalive=true;
+      const r=await fetch(url()+path,init);
       let data=null;try{data=await r.json()}catch{}
-      if(!r.ok){const e=new Error(data?.error||`后台 ${r.status}`);e.status=r.status;e.data=data;throw e}return data;
+      if(!r.ok){const e=new Error(data?.detail||data?.error||`后台 ${r.status}`);e.status=r.status;e.data=data;throw e}return data;
     }finally{clearTimeout(t)}
   }
   async function probeHealth(){
@@ -48,6 +52,14 @@
       return {ok:false,status:Number(e?.status||0),error:errText(e),data:e?.data||null,workerOnline:!!h.ok,version:h.version||null,healthError:h.error||''};
     }
   }
+  async function probeTransport(timeout=6500){
+    try{
+      const d=await request('/diagnostic/transport',{method:'POST',timeout,body:{ping:'red-a8-post'}});
+      return {ok:!!d?.ok&&d?.post===true,version:d?.version||null,data:d};
+    }catch(e){
+      return {ok:false,status:Number(e?.status||0),error:errText(e),data:e?.data||null};
+    }
+  }
   function diagnosticLabel(d){
     if(d?.ok)return `Worker v${d.version||'?'} · 鉴权 / KV / Key 配置通过`;
     if(Number(d?.status)===401)return `Worker${d?.version?` v${d.version}`:''} 在线 · RED_SHARED_TOKEN 未通过`;
@@ -56,8 +68,10 @@
   }
   async function explainTransportFailure(e){
     const d=await probeDiagnostic(5000);
-    if(d.ok)setStatus(`${diagnosticLabel(d)} · /chat 发送失败（${errText(e)}）`);
-    else setStatus(`${diagnosticLabel(d)} · 消息已保留待恢复`);
+    if(!d.ok){setStatus(`${diagnosticLabel(d)} · 消息已保留待恢复`);return}
+    const p=await probeTransport(5000);
+    if(!p.ok)setStatus(`${diagnosticLabel(d)} · POST transport 失败（${p.error||'未知'}）· 消息已保留`);
+    else setStatus(`${diagnosticLabel(d)} · POST transport 通过 · /chat 失败（${errText(e)}）`);
   }
 
   function qOpen(){if(qdbp)return qdbp;qdbp=new Promise((resolve,reject)=>{const r=indexedDB.open(QDB,1);r.onupgradeneeded=()=>{const d=r.result;if(!d.objectStoreNames.contains(QSTORE))d.createObjectStore(QSTORE,{keyPath:'jobId'})};r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)});return qdbp}
@@ -79,8 +93,19 @@
   async function migrateOldQueue(){try{const raw=localStorage.getItem(OLD_QUEUE);if(!raw)return;const xs=JSON.parse(raw);if(Array.isArray(xs))for(const x of xs)if(x?.jobId&&x?.body)try{await persistJob(x)}catch{};localStorage.removeItem(OLD_QUEUE)}catch(e){console.warn('RED old queue migration skipped',e)}}
 
   function lastTs(role){for(let i=history.length-1;i>=0;i--)if(history[i]?.role===role)return Number(history[i].ts||0)||0;return 0}
-  function identityContext(){try{return String(window.REDContext?.serverIdentityContext?.()||systemPrompt()).slice(0,12000)}catch{return''}}
-  function serverMessages(){try{return window.REDContext?.serverMessages?.()||contextMessages().filter(x=>x.role!=='system').slice(-10)}catch{return[]}}
+  function identityContext(){try{return String(window.REDContext?.serverIdentityContext?.()||systemPrompt()).slice(0,10000)}catch{return''}}
+  function serverMessages(){
+    let xs=[];try{xs=window.REDContext?.serverMessages?.()||contextMessages().filter(x=>x.role!=='system').slice(-10)}catch{return[]}
+    if(!Array.isArray(xs))return[];
+    const out=[];let budget=26000;
+    for(let i=xs.length-1;i>=0&&out.length<10&&budget>0;i--){
+      const x=xs[i];if(!x||!["user","assistant"].includes(x.role))continue;
+      const text=String(x.content||'');if(!text)continue;
+      const part=text.slice(Math.max(0,text.length-Math.min(5000,budget)));
+      budget-=part.length;out.push({role:x.role,content:part});
+    }
+    return out.reverse();
+  }
   function localMind(){
     const st=safeJSON(localStorage.getItem(INNER.state)||'',{})||{},rules=safeJSON(localStorage.getItem(INNER.rules)||'[]',[]);
     return {mood:st.mood||'平静',privateThoughts:Array.isArray(st.privateThoughts)?st.privateThoughts:[],ideas:Array.isArray(st.ideas)?st.ideas:[],unfinished:Array.isArray(st.unfinished)?st.unfinished:[],rules:Array.isArray(rules)?rules:[]};
@@ -102,7 +127,7 @@
   }
   async function bootstrap(force=false){
     if(!configured()||(!force&&localStorage.getItem(S.boot)))return false;
-    const m=localMind();await request('/bootstrap',{method:'POST',body:{enabled:true,model:localStorage.getItem(K.model)||DEFAULT_MAIN,identityContext:identityContext(),recent:history.slice(-14).map(x=>({role:x.role,content:String(x.content||'').slice(0,6000),ts:Number(x.ts)||Date.now()})),...m,lastUserAt:lastTs('user'),lastPublicAt:lastTs('assistant'),surfEnabled:true,surfAdult:true}});
+    const m=localMind();await request('/bootstrap',{method:'POST',body:{enabled:true,model:localStorage.getItem(K.model)||DEFAULT_MAIN,identityContext:identityContext(),recent:history.slice(-12).map(x=>({role:x.role,content:String(x.content||'').slice(0,4500),ts:Number(x.ts)||Date.now()})),...m,lastUserAt:lastTs('user'),lastPublicAt:lastTs('assistant'),surfEnabled:true,surfAdult:true}});
     localStorage.setItem(S.boot,'1');return true;
   }
   async function mirrorEvent(m){
@@ -129,10 +154,15 @@
 
   async function deliverJob(job,{keepalive=false,resume=false}={}){
     try{
-      const data=await request('/chat',{method:'POST',timeout:12000,keepalive,body:job.body});
+      const data=await request('/chat',{method:'POST',timeout:15000,keepalive,body:job.body});
       try{await qDel(job.jobId)}catch{}
+      try{window.dispatchEvent(new CustomEvent('red:transport-ok',{detail:{path:'/chat',at:Date.now()}}))}catch{}
       return data;
-    }catch(e){await qMark(job.jobId,e,e?.status||0);if(!resume)explainTransportFailure(e);throw e}
+    }catch(e){
+      await qMark(job.jobId,e,e?.status||0);
+      try{window.dispatchEvent(new CustomEvent('red:transport-failure',{detail:{path:'/chat',status:Number(e?.status||0),error:errText(e),data:e?.data||null,at:Date.now()}}))}catch{}
+      if(!resume)explainTransportFailure(e);throw e;
+    }
   }
   async function enqueueChat({messages,model,userEvent,keepalive=false}){
     const jobId=crypto.randomUUID();
@@ -182,27 +212,21 @@
     const u=document.getElementById('serverUrl')?.value.trim()||DEFAULT_URL,t=document.getElementById('serverToken')?.value.trim()||'';if(!t){alert('先填 RED_SHARED_TOKEN。');return}
     localStorage.setItem(S.url,u.replace(/\/+$/,''));localStorage.setItem(S.token,t);localStorage.setItem(S.enabled,'1');setCardStatus('正在做完整后台自检…');
     const d=await probeDiagnostic(8000);
-    if(!d.ok){
-      localStorage.setItem(S.enabled,'1');
-      setCardStatus(diagnosticLabel(d)+' · 配置已保留');
-      setStatus('后台还没通过完整自检 · 没有切换成另一只 R');
-      return;
-    }
+    if(!d.ok){localStorage.setItem(S.enabled,'1');setCardStatus(diagnosticLabel(d)+' · 配置已保留');setStatus('后台还没通过完整自检 · 没有切换成另一只 R');return}
+    const p=await probeTransport(8000);
+    if(!p.ok){setCardStatus(`${diagnosticLabel(d)} · POST transport 未通过（${p.error||'未知'}）`);setStatus('Worker 配置正常，但 POST 通道还没通过');return}
     try{
       localStorage.removeItem(S.boot);
       const synced=await syncNow({quiet:true});if(!synced)throw new Error('同步接口未通过');
       await bootstrap(true);startPolling();await resumeQueue({quiet:true});
-      setCardStatus(`已连接 · ${diagnosticLabel(d)} · 单一 R transport`,true);setStatus('R 在线 · 后台完整自检通过',true);
-    }catch(e){
-      setCardStatus(`${diagnosticLabel(d)} · 初始化未完成（${errText(e)}）`);
-      setStatus('Worker 已通过自检，但同步初始化还没完成');
-    }
+      setCardStatus(`已连接 · ${diagnosticLabel(d)} · POST transport 通过 · 单一 R transport`,true);setStatus('R 在线 · 后台完整自检通过',true);
+    }catch(e){setCardStatus(`${diagnosticLabel(d)} · POST transport 通过 · 初始化未完成（${errText(e)}）`);setStatus('Worker 已通过自检，但同步初始化还没完成')}
   }
   function installUI(){
     const panel=document.querySelector('#settingsSheet .panel');if(!panel||document.getElementById('serverBridgeCard'))return;
-    const card=document.createElement('div');card.id='serverBridgeCard';card.className='card';card.innerHTML=`<b>R 后台服务器</b><div id="serverStatus" class="notice" style="margin-top:6px">${configured()?'已配置，正在做完整自检…':'尚未在这台设备连接'}</div><div class="field"><label>Worker 地址</label><input id="serverUrl" value="${url()}"></div><div class="field"><label>RED_SHARED_TOKEN · 只存在这台设备</label><input id="serverToken" type="password" autocomplete="off"></div><div class="row"><button id="serverConnect" type="button" class="primary">连接 / 验证</button><button id="serverSync" type="button">立即同步</button></div><div class="notice" style="margin-top:7px">绿灯必须同时通过：Worker、连接密码、KV 读取、OpenRouter Key 配置和同步。临时失败不会关闭后台，也不会自动制造第二条人格路径。</div>`;
+    const card=document.createElement('div');card.id='serverBridgeCard';card.className='card';card.innerHTML=`<b>R 后台服务器</b><div id="serverStatus" class="notice" style="margin-top:6px">${configured()?'已配置，正在做完整自检…':'尚未在这台设备连接'}</div><div class="field"><label>Worker 地址</label><input id="serverUrl" value="${url()}"></div><div class="field"><label>RED_SHARED_TOKEN · 只存在这台设备</label><input id="serverToken" type="password" autocomplete="off"></div><div class="row"><button id="serverConnect" type="button" class="primary">连接 / 验证</button><button id="serverSync" type="button">立即同步</button></div><div class="notice" style="margin-top:7px">绿灯必须同时通过：Worker、连接密码、KV、OpenRouter Key、POST transport 和同步。发送消息不会再每次先做连接探测。</div>`;
     const anchor=document.getElementById('saveBtn')?.closest('.row');if(anchor)panel.insertBefore(card,anchor);else panel.appendChild(card);
-    document.getElementById('serverToken').value=token();document.getElementById('serverConnect').onclick=connectFromUI;document.getElementById('serverSync').onclick=async()=>{const d=await probeDiagnostic(6500);if(!d.ok){setCardStatus(diagnosticLabel(d));return}const ok=await syncNow();setCardStatus(ok?`同步完成 · ${diagnosticLabel(d)}`:`${diagnosticLabel(d)} · 同步失败`,ok)};
+    document.getElementById('serverToken').value=token();document.getElementById('serverConnect').onclick=connectFromUI;document.getElementById('serverSync').onclick=async()=>{const d=await probeDiagnostic(6500);if(!d.ok){setCardStatus(diagnosticLabel(d));return}const p=await probeTransport(6500);if(!p.ok){setCardStatus(`${diagnosticLabel(d)} · POST transport 失败（${p.error||'未知'}）`);return}const ok=await syncNow();setCardStatus(ok?`同步完成 · ${diagnosticLabel(d)} · POST transport 通过`:`${diagnosticLabel(d)} · POST transport 通过 · 同步失败`,ok)};
   }
   const baseAddMessage=addMessage;
   addMessage=async function(role,content,meta=''){const m=await baseAddMessage(role,content,meta);if(!syncingFromServer)mirrorEvent(m);return m};
@@ -211,15 +235,14 @@
   window.addEventListener('pagehide',()=>flushChatBatch({keepalive:true}));
   window.addEventListener('online',()=>{resumeQueue({quiet:false});syncNow({quiet:true})});
   window.addEventListener('focus',()=>resumeQueue({quiet:true}));
-  window.REDServer={version:V,configured,syncNow,bootstrap,connect:connectFromUI,url,resume:resumeQueue,probeHealth,probeDiagnostic};
+  window.REDServer={version:V,configured,syncNow,bootstrap,connect:connectFromUI,url,resume:resumeQueue,probeHealth,probeDiagnostic,probeTransport};
   installUI();
   setTimeout(async()=>{await migrateOldQueue();if(configured()){
-    const d=await probeDiagnostic(7000);
-    if(!d.ok){setCardStatus(`${diagnosticLabel(d)} · 配置已保留`);return}
-    const synced=await syncNow({quiet:true});
-    if(!synced){setCardStatus(`${diagnosticLabel(d)} · 同步接口未完成`);return}
+    const d=await probeDiagnostic(7000);if(!d.ok){setCardStatus(`${diagnosticLabel(d)} · 配置已保留`);return}
+    const p=await probeTransport(7000);if(!p.ok){setCardStatus(`${diagnosticLabel(d)} · POST transport 未通过（${p.error||'未知'}）`);return}
+    const synced=await syncNow({quiet:true});if(!synced){setCardStatus(`${diagnosticLabel(d)} · POST transport 通过 · 同步接口未完成`);return}
     try{await bootstrap(false)}catch(e){console.warn('RED server bootstrap skipped',e)}
     startPolling();await resumeQueue({quiet:false});
-    setCardStatus(`已连接 · ${diagnosticLabel(d)} · 单一 transport 已启用`,true);
+    setCardStatus(`已连接 · ${diagnosticLabel(d)} · POST transport 通过 · 单一 transport 已启用`,true);
   }},700);
 })();
