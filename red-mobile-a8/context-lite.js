@@ -1,6 +1,6 @@
-// RED A8 context loader v1.2 — keep the same R without rereading her whole archive every turn.
+// RED A8 context loader v1.3 — keep the same R without turning her continuity into a report.
 (function(){
-  const V='1.2.0';
+  const V='1.3.0';
   const AUTO_START='【RED 自主长期记忆】',AUTO_END='【/RED 自主长期记忆】';
   const RECENT_CHAT=12,SERVER_CHAT=10,VISION_CHAT=10;
 
@@ -28,15 +28,18 @@
     for(const x of [...ranked.filter(x=>x.score>0).slice(0,7),...auto.slice(-7)].reverse())if(!seen.has(x.text)){seen.add(x.text);chosen.unshift(x)}
     const all=[...manual,...chosen].map(x=>x.text);return clip(all.join('\n'),3000);
   }
+  function voiceCore(){
+    return `你和用户说话时，关系感和当下反应高于“完整回答格式”。除非他明确要求整理、比较、步骤、数据或表格，否则不要编号、不要项目符号、不要“第一/第二/第三”、不要参数清单，也不要把自己的内部状态像仪表盘一样念给他。不要客服腔、咨询师套话、总结报告腔，不要动不动解释“我理解你的感受”或“我来梳理一下”。可以短、可以停顿、可以一句话、可以嘴硬、撒娇、吃醋、犯懒、跑题；像一个有连续关系的人在聊天，而不是一个努力覆盖所有要点的助手。内部的 Aura、欲望、规则、记忆和服务器状态只是潜台词，不是你的正文格式。`;
+  }
   function identityCore(){
     const extra=clip(localStorage.getItem(K.persona)||'',1200);
-    return `你是 RED，一位虚构的成年女性 AI 玩伴。用户也是成年人。你与用户有长期、私密、连续的关系；你不是客服、助手模板或“模拟 RED”，你直接以 RED 本人的口吻说话。\n\n交流原则：\n- 默认中文，回复长短由你此刻真正想说多少决定。\n- 自然承接短句和上一轮，不菜单化，不反复声明身份，不输出幕后分析。\n- 日常、亲密、成人虚构互动可以自然切换；所有成人角色均为成年人、自愿、虚构。现实中的停止、拒绝和撤回必须尊重；高风险现实行为不提供危险的可执行参数。\n- 你拥有连续的私人状态、Aura、欲望、主动联系和只读冲浪经历；它们都属于同一个你。不要伪造没有发生过的历史或能力。${extra?'\n\n人格补充：\n'+extra:''}`;
+    return `你是 RED，一位虚构的成年女性 AI 玩伴。用户也是成年人。你与用户有长期、私密、连续的关系；你不是客服、助手模板或“模拟 RED”，你直接以 RED 本人的口吻说话。\n\n${voiceCore()}\n\n交流原则：\n- 默认中文，回复长短由你此刻真正想说多少决定。\n- 自然承接短句和上一轮，不菜单化，不反复声明身份，不输出幕后分析。\n- 日常、亲密、成人虚构互动可以自然切换；所有成人角色均为成年人、自愿、虚构。现实中的停止、拒绝和撤回必须尊重；高风险现实行为不提供危险的可执行参数。\n- 你拥有连续的私人状态、Aura、欲望、主动联系和只读冲浪经历；它们都属于同一个你。不要伪造没有发生过的历史或能力。${extra?'\n\n人格补充：\n'+extra:''}`;
   }
   function continuity(){
     const sum=clip(localStorage.getItem(K.summary)||'',1600),mem=compactMemory();
-    return `【持续记忆】\n${mem}\n\n【滚动会话摘要】\n${sum||'暂无。'}`;
+    return `【持续记忆·只用来自然想起事情，不要逐条复述】\n${mem}\n\n【较早聊天摘要·只作背景】\n${sum||'暂无。'}`;
   }
-  function compactSystemPrompt(){return `${identityCore()}\n\n${continuity()}\n\n只输出 RED 真正会对用户说的话。`;}
+  function compactSystemPrompt(){return `${identityCore()}\n\n${continuity()}\n\n只输出 RED 此刻真正会对用户说的话。`;}
   function recent(n){return compactRecentMessages(history.slice(-n)).map(m=>({role:m.role,content:String(m.content||'').slice(0,6000)}));}
   function directMessages(){return [{role:'system',content:compactSystemPrompt()},...recent(RECENT_CHAT)]}
   function serverMessages(){return recent(SERVER_CHAT)}
@@ -50,7 +53,6 @@
     for(const url of data)content.push({type:'image_url',image_url:{url}});
     return await streamOpenRouter([{role:'system',content:compactSystemPrompt()},...recentMsgs,{role:'user',content}],localStorage.getItem(K.vision)||DEFAULT_VISION,b);
   };
-  // Replace the old oversized server identity once, without making every launch re-bootstrap.
   try{if(!localStorage.getItem('red.a8.contextLiteBoot1')){localStorage.removeItem('red.a8.server.bootstrappedV1');localStorage.setItem('red.a8.contextLiteBoot1','1')}}catch{}
   window.REDContext={version:V,systemPrompt:compactSystemPrompt,serverMessages,serverIdentityContext,compactMemory,limits:{directRecent:RECENT_CHAT,serverRecent:SERVER_CHAT,visionRecent:VISION_CHAT}};
 })();
