@@ -1,11 +1,9 @@
 import core from "./index.js";
 import {publicPushConfig,subscribePush,unsubscribePush,sendPush,notifyNewOutbox} from "./push.js";
+import {degradedChat,isKVWriteLimitError} from "./degraded-chat.js";
 
-const VERSION=16;
+const VERSION=17;
 const JSON_HEADERS={"content-type":"application/json; charset=utf-8"};
-// RED uses token-authenticated API routes and no cross-origin cookies. A wildcard
-// origin avoids brittle iOS/PWA Origin matching while RED_SHARED_TOKEN remains
-// the authorization boundary for every private route.
 const cors=()=>({
   "access-control-allow-origin":"*",
   "access-control-allow-methods":"GET,POST,OPTIONS",
@@ -15,8 +13,6 @@ const cors=()=>({
 const j=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{...JSON_HEADERS,...cors()}});
 const auth=(req,env)=>!!env.RED_SHARED_TOKEN&&req.headers.get("x-red-token")===env.RED_SHARED_TOKEN;
 const STALLED_CHAT_MS=35000;
-const CHAT_RECEIPT_TTL=30*24*60*60;
-const chatReceiptKey=id=>`chat-receipt:${String(id||'').slice(0,160)}`;
 
 function withCors(res){
   const headers=new Headers(res.headers);
@@ -31,7 +27,7 @@ async function diagnostic(req,env){
   let kvRead=false;
   try{await env.RED_STATE.get("state");kvRead=true}catch(e){return j({ok:false,error:"RED_STATE unreadable",detail:String(e?.message||e).slice(0,180),version:VERSION,auth:true,bindings,kvRead:false},500)}
   if(!bindings.openRouterKey)return j({ok:false,error:"OPENROUTER_API_KEY missing",version:VERSION,auth:true,bindings,kvRead},500);
-  return j({ok:true,name:"red-a8-mind",version:VERSION,auth:true,bindings,kvRead,corsWildcard:true,time:Date.now()},200);
+  return j({ok:true,name:"red-a8-mind",version:VERSION,auth:true,bindings,kvRead,corsWildcard:true,kvWriteLimitFallback:true,time:Date.now()},200);
 }
 
 async function transportDiagnostic(req,env){
@@ -64,15 +60,10 @@ async function recoverStalledPending(env){
     }
     if(recovered){await env.RED_STATE.put("state",JSON.stringify(state));console.warn(`RED recovered ${recovered} stalled chat job(s)`)}
     return recovered;
-  }catch(e){console.warn("RED stalled-chat recovery skipped",String(e?.message||e));return 0}
-}
-
-async function chatReceipt(req,env,url){
-  if(url.pathname!=="/chat"||req.method!=="POST"||!auth(req,env))return {jobId:"",duplicate:false};
-  try{
-    const body=await req.clone().json(),jobId=String(body?.jobId||"").trim().slice(0,160);if(!jobId)return {jobId:"",duplicate:false};
-    const prior=await env.RED_STATE.get(chatReceiptKey(jobId));return {jobId,duplicate:!!prior};
-  }catch{return {jobId:"",duplicate:false}}
+  }catch(e){
+    if(!isKVWriteLimitError(e))console.warn("RED stalled-chat recovery skipped",String(e?.message||e));
+    return 0;
+  }
 }
 
 async function compactChatRequest(req,url){
@@ -94,11 +85,12 @@ export default {
   async fetch(req,env,ctx){
     const url=new URL(req.url);
     if(req.method==="OPTIONS")return new Response(null,{status:204,headers:cors()});
-    if(url.pathname==="/health")return j({ok:true,name:"red-a8-mind",version:VERSION,push:true,chatRecovery:true,resumableChat:true,idempotentChatReceipts:true,compactContext:true,serverRecentLimit:10,wakeTrace:true,proactiveFollowUp:true,adultDesire:true,aura:true,auraContinuous:true,auraTextInference:false,peakEvent:true,corsWildcard:true,diagnostic:true,postDiagnostic:true,errorBoundary:true,time:Date.now()},200);
+    if(url.pathname==="/health")return j({ok:true,name:"red-a8-mind",version:VERSION,push:true,chatRecovery:true,resumableChat:true,compactContext:true,serverRecentLimit:10,wakeTrace:true,proactiveFollowUp:true,adultDesire:true,aura:true,auraContinuous:true,auraTextInference:false,peakEvent:true,corsWildcard:true,diagnostic:true,postDiagnostic:true,errorBoundary:true,kvWriteLimitFallback:true,time:Date.now()},200);
     if(url.pathname==="/diagnostic"&&req.method==="GET")return diagnostic(req,env);
     if(url.pathname==="/diagnostic/transport"&&req.method==="POST")return transportDiagnostic(req,env);
 
     let stage="route";
+    let fallbackReq=null;
     try{
       if(url.pathname.startsWith("/push/")){
         stage="push_auth";
@@ -111,25 +103,28 @@ export default {
         return j({error:"not_found"},404);
       }
 
-      stage="receipt";
-      const receipt=await chatReceipt(req,env,url);
-      if(receipt.duplicate)return j({accepted:true,jobId:receipt.jobId,duplicate:true,resumed:true},202);
-
       stage="compact";
       const forwarded=await compactChatRequest(req,url);
+      if(url.pathname==="/chat"&&req.method==="POST")fallbackReq=forwarded.clone();
       stage="core";
       const coreRes=await core.fetch(forwarded,env,wrappedCtx(ctx,env));
       stage="response";
       const res=withCors(coreRes);
-      if(receipt.jobId&&res.status>=200&&res.status<300){
-        stage="receipt_write";
-        try{await env.RED_STATE.put(chatReceiptKey(receipt.jobId),String(Date.now()),{expirationTtl:CHAT_RECEIPT_TTL})}
-        catch(e){console.warn("RED chat receipt write skipped",String(e?.message||e))}
-      }
       stage="push_scan";
       ctx.waitUntil(notifyNewOutbox(env).catch(e=>console.warn("RED push scan skipped",String(e?.message||e))));
       return res;
     }catch(e){
+      if(url.pathname==="/chat"&&req.method==="POST"&&isKVWriteLimitError(e)){
+        stage="kv_write_limit_fallback";
+        try{
+          const body=await (fallbackReq||req.clone()).json();
+          const data=await degradedChat(env,body);
+          return j({...data,version:VERSION},200);
+        }catch(inner){
+          console.error("RED degraded chat failed",inner);
+          return j({error:"degraded_chat_failed",stage,detail:String(inner?.message||inner).slice(0,240),version:VERSION,path:url.pathname},500);
+        }
+      }
       console.error("RED Worker request failed",stage,e);
       return j({error:"worker_exception",stage,detail:String(e?.message||e).slice(0,240),version:VERSION,path:url.pathname},500);
     }
