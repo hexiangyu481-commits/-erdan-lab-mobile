@@ -1,7 +1,7 @@
-// RED A8 server bridge v1.7.0
+// RED A8 server bridge v1.7.1
 // One transport path owns chat delivery, retry, sync and diagnostics.
 (function(){
-  const V='1.7.0';
+  const V='1.7.1';
   const DEFAULT_URL='https://red-a8-mind.hexiangyu481.workers.dev';
   const CHAT_DEBOUNCE_MS=1100;
   const S={url:'red.a8.server.url',token:'red.a8.server.token',enabled:'red.a8.server.enabled',boot:'red.a8.server.bootstrappedV1',seen:'red.a8.server.seenV1',surf:'red.a8.server.surfStats',surfHistory:'red.a8.server.surfHistory',aura:'red.a8.server.auraState',adult:'red.a8.server.adultState',peak:'red.a8.server.peakEvent'};
@@ -31,7 +31,7 @@
     try{
       const r=await fetch(url()+path,{method,headers:headers(),body:body===undefined?undefined:JSON.stringify(body),signal:c.signal,keepalive});
       let data=null;try{data=await r.json()}catch{}
-      if(!r.ok)throw new Error(data?.error||`后台 ${r.status}`);return data;
+      if(!r.ok){const e=new Error(data?.error||`后台 ${r.status}`);e.status=r.status;throw e}return data;
     }finally{clearTimeout(t)}
   }
   async function probeHealth(){
@@ -117,7 +117,7 @@
       const data=await request('/chat',{method:'POST',timeout:12000,keepalive,body:job.body});
       try{await qDel(job.jobId)}catch{}
       return data;
-    }catch(e){await qMark(job.jobId,e);if(!resume)explainTransportFailure(e);throw e}
+    }catch(e){await qMark(job.jobId,e,e?.status||0);if(!resume)explainTransportFailure(e);throw e}
   }
   async function enqueueChat({messages,model,userEvent,keepalive=false}){
     const jobId=crypto.randomUUID();
@@ -166,12 +166,17 @@
   async function connectFromUI(){
     const u=document.getElementById('serverUrl')?.value.trim()||DEFAULT_URL,t=document.getElementById('serverToken')?.value.trim()||'';if(!t){alert('先填 RED_SHARED_TOKEN。');return}
     localStorage.setItem(S.url,u.replace(/\/+$/,''));localStorage.setItem(S.token,t);localStorage.setItem(S.enabled,'1');setCardStatus('正在验证…');
-    try{await request('/state',{timeout:12000});localStorage.removeItem(S.boot);await syncNow({quiet:true});await bootstrap(true);startPolling();await resumeQueue({quiet:true});setCardStatus('已连接 · 聊天 / 主动消息 / Aura / 冲浪由同一个 R 承接',true);setStatus('R 在线',true)}
-    catch(e){localStorage.setItem(S.enabled,'0');setCardStatus('连接失败：'+errText(e));alert('连接失败：'+errText(e))}
+    try{await request('/state',{timeout:12000});localStorage.removeItem(S.boot);await syncNow({quiet:true});await bootstrap(true);startPolling();await resumeQueue({quiet:true});const h=await probeHealth();setCardStatus(`已连接${h.ok&&h.version?` · Worker v${h.version}`:''} · 聊天 / 主动消息 / Aura / 冲浪由同一个 R 承接`,true);setStatus('R 在线',true)}
+    catch(e){
+      // A transient Safari/CORS/network failure must not silently turn the server off.
+      localStorage.setItem(S.enabled,'1');startPolling();
+      setCardStatus('暂时验证失败：'+errText(e)+' · 后台配置已保留，会自动重试');
+      setStatus('后台暂时验证失败 · R 的服务器配置仍保持开启');
+    }
   }
   function installUI(){
     const panel=document.querySelector('#settingsSheet .panel');if(!panel||document.getElementById('serverBridgeCard'))return;
-    const card=document.createElement('div');card.id='serverBridgeCard';card.className='card';card.innerHTML=`<b>R 后台服务器</b><div id="serverStatus" class="notice" style="margin-top:6px">${configured()?'已配置，正在验证…':'尚未在这台设备连接'}</div><div class="field"><label>Worker 地址</label><input id="serverUrl" value="${url()}"></div><div class="field"><label>RED_SHARED_TOKEN · 只存在这台设备</label><input id="serverToken" type="password" autocomplete="off"></div><div class="row"><button id="serverConnect" type="button" class="primary">连接 / 验证</button><button id="serverSync" type="button">立即同步</button></div><div class="notice" style="margin-top:7px">发送、断点续传和同步现在共用一条 transport；失败时会区分 Worker 不可达与 /chat 路由失败。</div>`;
+    const card=document.createElement('div');card.id='serverBridgeCard';card.className='card';card.innerHTML=`<b>R 后台服务器</b><div id="serverStatus" class="notice" style="margin-top:6px">${configured()?'已配置，正在验证…':'尚未在这台设备连接'}</div><div class="field"><label>Worker 地址</label><input id="serverUrl" value="${url()}"></div><div class="field"><label>RED_SHARED_TOKEN · 只存在这台设备</label><input id="serverToken" type="password" autocomplete="off"></div><div class="row"><button id="serverConnect" type="button" class="primary">连接 / 验证</button><button id="serverSync" type="button">立即同步</button></div><div class="notice" style="margin-top:7px">发送、断点续传和同步现在共用一条 transport；临时验证失败不会再关闭后台连接。</div>`;
     const anchor=document.getElementById('saveBtn')?.closest('.row');if(anchor)panel.insertBefore(card,anchor);else panel.appendChild(card);
     document.getElementById('serverToken').value=token();document.getElementById('serverConnect').onclick=connectFromUI;document.getElementById('serverSync').onclick=async()=>{const ok=await syncNow();setCardStatus(ok?'同步完成':'同步失败',ok)};
   }
@@ -184,5 +189,10 @@
   window.addEventListener('focus',()=>resumeQueue({quiet:true}));
   window.REDServer={version:V,configured,syncNow,bootstrap,connect:connectFromUI,url,resume:resumeQueue,probeHealth};
   installUI();
-  setTimeout(async()=>{await migrateOldQueue();if(configured()){await syncNow({quiet:true});try{await bootstrap(false)}catch(e){console.warn('RED server bootstrap skipped',e)}startPolling();await resumeQueue({quiet:false});setCardStatus('已连接 · 单一 transport 已启用',true)}},700);
+  setTimeout(async()=>{await migrateOldQueue();if(configured()){
+    await syncNow({quiet:true});try{await bootstrap(false)}catch(e){console.warn('RED server bootstrap skipped',e)}startPolling();await resumeQueue({quiet:false});
+    const h=await probeHealth();
+    if(h.ok)setCardStatus(`已连接${h.version?` · Worker v${h.version}`:''} · 单一 transport 已启用`,true);
+    else setCardStatus(`后台暂时不可达 · 配置已保留，会自动重试${h.error?`（${h.error}）`:''}`);
+  }},700);
 })();
