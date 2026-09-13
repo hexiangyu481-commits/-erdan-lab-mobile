@@ -1,7 +1,7 @@
-// RED A8 server bridge v1.10.0
+// RED A8 server bridge v1.11.0
 // One transport path owns chat delivery, retry, sync and diagnostics.
 (function(){
-  const V='1.10.0';
+  const V='1.11.0';
   const DEFAULT_URL='https://red-a8-mind.hexiangyu481.workers.dev';
   const CHAT_DEBOUNCE_MS=1100;
   const S={url:'red.a8.server.url',token:'red.a8.server.token',enabled:'red.a8.server.enabled',boot:'red.a8.server.bootstrappedV1',seen:'red.a8.server.seenV1',surf:'red.a8.server.surfStats',surfHistory:'red.a8.server.surfHistory',aura:'red.a8.server.auraState',adult:'red.a8.server.adultState',peak:'red.a8.server.peakEvent'};
@@ -108,8 +108,6 @@
     localStorage.setItem(S.boot,'1');return true;
   }
   async function mirrorEvent(m){
-    // Normal user text is already carried by /chat as clientUserEvent. Mirroring it
-    // separately was a redundant KV write. Keep this only for direct assistant turns.
     if(!configured()||syncingFromServer||m?.role!=='assistant'||!m?.content)return;
     try{await request('/event',{method:'POST',timeout:9000,body:{id:`local:${m.id||crypto.randomUUID()}`,role:m.role,content:m.content,ts:Number(m.ts)||Date.now(),model:localStorage.getItem(K.model)||DEFAULT_MAIN}})}catch(e){console.warn('RED server event mirror skipped',e)}
   }
@@ -123,8 +121,6 @@
         if(m.role==='assistant'&&m.content){syncingFromServer=true;try{await addMessage('assistant',String(m.content),'');if(m.usage?.cost!=null)trackCost(m.usage.cost);lastText=String(m.content);added++}finally{syncingFromServer=false}}
         else if(m.source==='error')setStatus('回复失败 · 打开页面可重试');
       }
-      // No /ack write here: local seen ids already prevent duplicate display. The
-      // server trims outbox on later state writes, saving one KV write per sync.
       saveSeen(known);
       if(added){render();scrollBottom(false);setStatus(added>1?`R 回来了 · ${added} 条新消息`:'R 回来了',true);maybeSummarize();try{if(document.visibilityState!=='visible'&&'Notification'in window&&Notification.permission==='granted')new Notification('R',{body:lastText.slice(0,140)})}catch{}}
       else if(!quiet&&Array.isArray(data?.pending)&&data.pending.length)setStatus('R 在想 · 你可以继续发，也可以先关掉',true);
@@ -135,9 +131,7 @@
 
   async function deliverJob(job,{keepalive=false,resume=false}={}){
     try{
-      // Normal queued chat returns immediately; KV-write-limit fallback may answer
-      // synchronously, so allow the model enough time instead of aborting at 15s.
-      const data=await request('/chat',{method:'POST',timeout:45000,keepalive,body:job.body});
+      const data=await request('/chat',{method:'POST',timeout:90000,keepalive,body:job.body});
       try{await qDel(job.jobId)}catch{}
       if(data?.reply){
         syncingFromServer=true;
@@ -146,7 +140,7 @@
           if(data?.usage?.cost!=null)trackCost(data.usage.cost);
           applyServerState(data.state);
           render();scrollBottom(false);maybeSummarize();
-          setStatus(data.degraded?'R 回来了 · KV 写配额暂满，已用同一后台无写入续聊':'R 回来了',true);
+          setStatus(data.degraded?'R 回来了 · KV 写配额暂满，仍由同一个后台续聊':'R 回来了',true);
         }finally{syncingFromServer=false}
       }
       try{window.dispatchEvent(new CustomEvent('red:transport-ok',{detail:{path:'/chat',degraded:!!data?.degraded,at:Date.now()}}))}catch{}
