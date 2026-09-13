@@ -1,6 +1,6 @@
-// RED A8 context loader v1.1 — keep the same R without rereading her whole archive every turn.
+// RED A8 context loader v1.2 — keep the same R without rereading her whole archive every turn.
 (function(){
-  const V='1.1.0';
+  const V='1.2.0';
   const AUTO_START='【RED 自主长期记忆】',AUTO_END='【/RED 自主长期记忆】';
   const RECENT_CHAT=12,SERVER_CHAT=10,VISION_CHAT=10;
 
@@ -42,7 +42,6 @@
   function serverMessages(){return recent(SERVER_CHAT)}
   function serverIdentityContext(){return `${identityCore()}\n\n${continuity()}`}
 
-  // Direct/image fallback also becomes lighter; server chat gets identity separately and never duplicates it in messages.
   systemPrompt=compactSystemPrompt;
   contextMessages=directMessages;
   if(typeof visionTurn==='function')visionTurn=async function(text,files,b){
@@ -51,5 +50,7 @@
     for(const url of data)content.push({type:'image_url',image_url:{url}});
     return await streamOpenRouter([{role:'system',content:compactSystemPrompt()},...recentMsgs,{role:'user',content}],localStorage.getItem(K.vision)||DEFAULT_VISION,b);
   };
+  // Replace the old oversized server identity once, without making every launch re-bootstrap.
+  try{if(!localStorage.getItem('red.a8.contextLiteBoot1')){localStorage.removeItem('red.a8.server.bootstrappedV1');localStorage.setItem('red.a8.contextLiteBoot1','1')}}catch{}
   window.REDContext={version:V,systemPrompt:compactSystemPrompt,serverMessages,serverIdentityContext,compactMemory,limits:{directRecent:RECENT_CHAT,serverRecent:SERVER_CHAT,visionRecent:VISION_CHAT}};
 })();
