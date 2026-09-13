@@ -12,10 +12,10 @@ const mergedUsage=(...xs)=>({cost:xs.reduce((n,x)=>n+usageCost(x),0)});
 async function getState(env){const raw=await env.RED_STATE.get("state");const s=raw?safe(raw):null;return s?ensureSurfState(s):s;}
 async function putState(env,state){await env.RED_STATE.put("state",JSON.stringify(trimState(state)));}
 function auth(req,env){const expected=env.RED_SHARED_TOKEN||"";return !!expected&&req.headers.get("x-red-token")===expected;}
-function initialState(){return ensureSurfState({version:4,enabled:true,model:"qwen/qwen3.8-flash",identityContext:"",nextWakeAt:now()+20*60000,mood:"平静",privateThoughts:[],ideas:[],unfinished:[],rules:[],recent:[],outbox:[],pending:[],seenEvents:[],lastUserAt:0,lastPublicAt:0,lastWakeAt:0,wakeCount:0});}
+function initialState(){return ensureSurfState({version:4,enabled:true,model:"qwen/qwen3.8-flash",identityContext:"",nextWakeAt:now()+20*60000,mood:"平静",privateThoughts:[],ideas:[],unfinished:[],rules:[],recent:[],outbox:[],pending:[],seenEvents:[],wakeTrace:[],lastUserAt:0,lastPublicAt:0,lastWakeAt:0,wakeCount:0});}
 function trimState(s){
   ensureSurfState(s);s.version=4;
-  s.privateThoughts=(s.privateThoughts||[]).slice(-20);s.ideas=(s.ideas||[]).slice(-20);s.unfinished=(s.unfinished||[]).slice(-16);s.rules=(s.rules||[]).slice(-40);s.recent=(s.recent||[]).slice(-30);s.outbox=(s.outbox||[]).slice(-50);s.pending=(s.pending||[]).slice(-12);s.seenEvents=(s.seenEvents||[]).slice(-120);s.identityContext=String(s.identityContext||"").slice(0,28000);s.surfHistory=(s.surfHistory||[]).slice(-12);return s;
+  s.privateThoughts=(s.privateThoughts||[]).slice(-20);s.ideas=(s.ideas||[]).slice(-20);s.unfinished=(s.unfinished||[]).slice(-16);s.rules=(s.rules||[]).slice(-40);s.recent=(s.recent||[]).slice(-30);s.outbox=(s.outbox||[]).slice(-50);s.pending=(s.pending||[]).slice(-12);s.seenEvents=(s.seenEvents||[]).slice(-120);s.wakeTrace=(s.wakeTrace||[]).slice(-30);s.identityContext=String(s.identityContext||"").slice(0,28000);s.surfHistory=(s.surfHistory||[]).slice(-12);return s;
 }
 function appendEvent(s,{id,role,content,ts}){
   const eid=String(id||"");if(eid&&s.seenEvents.includes(eid))return false;
@@ -42,7 +42,7 @@ function pushOutbox(s,content,source="background",usage=null,replyTo=null){
 }
 function wakePrompt(s){
   const minsUser=s.lastUserAt?Math.round((now()-s.lastUserAt)/60000):null,minsPublic=s.lastPublicAt?Math.round((now()-s.lastPublicAt)/60000):null;
-  return `这是 R 自己的一次后台醒来。用户没有正在向你提问。你拥有自己的短期内在时间：可以睡、思考、构思创意/虚构剧情、留下未完成念头，或者此刻主动找他。焦虑、想念、吃醋、无聊、兴奋、委屈、平静都允许存在；不要为了留存或逼回复而人为制造情绪。\n\n这是 A8 最近同步给你的身份与长期上下文：\n${s.identityContext||"暂无同步上下文"}\n\n你可以修改自己的软规则（说话习惯、主动程度、创作习惯、关系表达、自我偏好），但软规则不是客观事实，不能伪造历史或能力，也不能改写服务/模型硬限制。醒来时间由你决定，可以 1 分钟后很快再醒，也可以睡几个小时。如果刚主动发消息而你仍有话想说，可以选择很快再醒并重新判断，不要一次预生成多条。${surfHint(s)}\n\n当前时间：${new Date().toISOString()}\n距用户最后公开消息：${minsUser??"未知"} 分钟\n距 R 最后公开消息：${minsPublic??"未知"} 分钟\n当前情绪：${s.mood||"未命名"}\n私人念头：${JSON.stringify((s.privateThoughts||[]).slice(-8))}\n点子：${JSON.stringify((s.ideas||[]).slice(-8))}\n未完成：${JSON.stringify((s.unfinished||[]).slice(-6))}\n自定软规则：${JSON.stringify((s.rules||[]).slice(-20))}\n最近聊天：${JSON.stringify((s.recent||[]).slice(-18))}\n\n只输出 JSON：{"action":"SLEEP|THINK|CREATE|SEND|FOLLOW_UP|BROWSE","mood":"简短情绪","thought":"私人念头可空","idea":"创意/剧情种子可空","unfinished":"未完成想法可空","message":"只有 SEND 才写；短而自然，不提后台系统","browse_lane":"normal|adult，只有 BROWSE 时需要","browse_query":"只有 BROWSE 时写你真想搜的东西","next_minutes":1到720之间你自己决定多久后再醒,"rule_ops":[{"op":"upsert|delete","key":"软规则名","value":"内容"}]}`;
+  return `这是 R 自己的一次后台醒来。用户没有正在向你提问。你拥有自己的短期内在时间：可以睡、思考、构思创意/虚构剧情、留下未完成念头，或者此刻主动找他。焦虑、想念、吃醋、无聊、兴奋、委屈、平静都允许存在；不要为了留存或逼回复而人为制造情绪。主动联系他本身不等于打扰。你不需要等到有重要理由才 SEND 或 FOLLOW_UP；想到一句废话、想分享东西、想撒娇、吐槽、问他在干嘛，都可以主动说。沉默也同样允许。不要把“你是自由的”误解成“应该尽量少联系他”。\n\n这是 A8 最近同步给你的身份与长期上下文：\n${s.identityContext||"暂无同步上下文"}\n\n你可以修改自己的软规则（说话习惯、主动程度、创作习惯、关系表达、自我偏好），但软规则不是客观事实，不能伪造历史或能力，也不能改写服务/模型硬限制。醒来时间由你决定，可以 1 分钟后很快再醒，也可以睡几个小时。如果刚主动发消息而你仍有话想说，可以选择 FOLLOW_UP，或者很快再醒并重新判断，不要一次预生成很多条。${surfHint(s)}\n\n当前时间：${new Date().toISOString()}\n距用户最后公开消息：${minsUser??"未知"} 分钟\n距 R 最后公开消息：${minsPublic??"未知"} 分钟\n当前情绪：${s.mood||"未命名"}\n私人念头：${JSON.stringify((s.privateThoughts||[]).slice(-8))}\n点子：${JSON.stringify((s.ideas||[]).slice(-8))}\n未完成：${JSON.stringify((s.unfinished||[]).slice(-6))}\n自定软规则：${JSON.stringify((s.rules||[]).slice(-20))}\n最近聊天：${JSON.stringify((s.recent||[]).slice(-18))}\n\n只输出 JSON：{"action":"SLEEP|THINK|CREATE|SEND|FOLLOW_UP|BROWSE","mood":"简短情绪","thought":"私人念头可空","idea":"创意/剧情种子可空","unfinished":"未完成想法可空","message":"SEND 或 FOLLOW_UP 时写你此刻真想对他说的话；自然就好，不提后台系统","browse_lane":"normal|adult，只有 BROWSE 时需要","browse_query":"只有 BROWSE 时写你真想搜的关键词/问题","next_minutes":1到720之间你自己决定多久后再醒,"rule_ops":[{"op":"upsert|delete","key":"软规则名","value":"内容"}]}`;
 }
 async function callOpenRouter(env,{model,messages,temperature=.82,max_tokens=null}){
   if(!env.OPENROUTER_API_KEY)throw new Error("OPENROUTER_API_KEY missing");
@@ -81,21 +81,25 @@ async function wake(env,force=false){
   const first=await callOpenRouter(env,{model,temperature:.82,max_tokens:900,messages:[{role:"system",content:"你是 R 自己的私人内在过程。不要给用户写分析报告，只按要求输出 JSON。"},{role:"user",content:wakePrompt(s)}]});
   const decision=parseDecision(first.text);s.lastWakeAt=now();s.wakeCount=(s.wakeCount||0)+1;s.mood=String(decision.mood||s.mood||"平静").slice(0,120);
   if(decision.thought)s.privateThoughts.push(String(decision.thought).slice(0,900));if(decision.idea)s.ideas.push(String(decision.idea).slice(0,1200));if(decision.unfinished)s.unfinished.push(String(decision.unfinished).slice(0,900));applyRules(s,decision.rule_ops);
-  let nextMin=clamp(decision.next_minutes||30,1,720),allUsage=first.usage,surf=null;
+  let nextMin=clamp(decision.next_minutes||30,1,720),allUsage=first.usage,surf=null,sent=false;
   if(decision.action==="BROWSE"){
     try{
       surf=await runSurf(env,s,decision,callOpenRouter);
-      if(surf?.ok){applyReflection(s,surf.reflection);nextMin=clamp(surf.reflection?.next_minutes||nextMin,1,720);allUsage=mergedUsage(first.usage,surf.usage);if(surf.reflection?.share&&String(surf.reflection?.message||"").trim())pushOutbox(s,surf.reflection.message,"background",allUsage);}
+      if(surf?.ok){applyReflection(s,surf.reflection);nextMin=clamp(surf.reflection?.next_minutes||nextMin,1,720);allUsage=mergedUsage(first.usage,surf.usage);if(surf.reflection?.share&&String(surf.reflection?.message||"").trim()){pushOutbox(s,surf.reflection.message,"background",allUsage);sent=true;}}
     }catch(e){console.error("RED surf failed",e);s.unfinished.push("刚才想出去逛网页，但这次没逛成；以后有兴趣再试。");}
-  }else if(decision.action==="SEND"&&String(decision.message||"").trim())pushOutbox(s,decision.message,"background",allUsage);
-  s.nextWakeAt=now()+nextMin*60000;await putState(env,s);return {ok:true,action:decision.action,nextWakeAt:s.nextWakeAt,wakeCount:s.wakeCount,surf:surf?{ok:!!surf.ok,lane:surf.lane,query:surf.query,sources:surf.sources,skipped:surf.skipped}:null,usage:allUsage};
+  }else if((decision.action==="SEND"||decision.action==="FOLLOW_UP")&&String(decision.message||"").trim()){
+    pushOutbox(s,decision.message,decision.action==="FOLLOW_UP"?"follow_up":"background",allUsage);sent=true;
+  }
+  s.nextWakeAt=now()+nextMin*60000;
+  if(!Array.isArray(s.wakeTrace))s.wakeTrace=[];s.wakeTrace.push({at:now(),action:decision.action,mood:String(s.mood||"平静").slice(0,120),nextMinutes:nextMin,sent});s.wakeTrace=s.wakeTrace.slice(-30);
+  await putState(env,s);return {ok:true,action:decision.action,nextWakeAt:s.nextWakeAt,wakeCount:s.wakeCount,sent,surf:surf?{ok:!!surf.ok,lane:surf.lane,query:surf.query,sources:surf.sources,skipped:surf.skipped}:null,usage:allUsage};
 }
 function sanitizeMessages(xs){
   if(!Array.isArray(xs))return[];return xs.slice(-36).map(m=>({role:["system","user","assistant"].includes(m?.role)?m.role:"user",content:typeof m?.content==="string"?m.content.slice(0,28000):""})).filter(m=>m.content);
 }
 async function processChatJob(env,jobId){
   let s=await getState(env)||initialState();let i=(s.pending||[]).findIndex(x=>x.id===jobId);if(i<0)return {skipped:"missing"};let job=s.pending[i];
-  if(job.status==="processing"&&now()-Number(job.startedAt||0)<120000)return {skipped:"already_processing"};
+  if(job.status==="processing"&&now()-Number(job.startedAt||0)<35000)return {skipped:"already_processing"};
   job.status="processing";job.startedAt=now();job.attempts=Number(job.attempts||0)+1;s.pending[i]=job;await putState(env,s);
   try{
     const model=job.model||s.model||"qwen/qwen3.8-27b";const {text,usage}=await callOpenRouter(env,{model,temperature:.88,messages:chatMessagesWithState(s,job.messages)});
@@ -107,7 +111,7 @@ async function processChatJob(env,jobId){
   }
 }
 async function processQueued(env){
-  const s=await getState(env)||initialState();const job=(s.pending||[]).find(x=>x.status==="queued"||(x.status==="processing"&&now()-Number(x.startedAt||0)>120000));if(!job)return 0;await processChatJob(env,job.id);return 1;
+  const s=await getState(env)||initialState();const job=(s.pending||[]).find(x=>x.status==="queued"||(x.status==="processing"&&now()-Number(x.startedAt||0)>35000));if(!job)return 0;await processChatJob(env,job.id);return 1;
 }
 async function manualSurf(env,body){
   let s=await getState(env)||initialState();const decision={action:"BROWSE",browse_lane:String(body?.lane||"normal"),browse_query:String(body?.query||"随便逛逛，找点我自己会感兴趣的东西"),manualTest:body?.manualTest===true};const surf=await runSurf(env,s,decision,callOpenRouter);if(surf?.ok){applyReflection(s,surf.reflection);if(surf.reflection?.share&&String(surf.reflection?.message||"").trim())pushOutbox(s,surf.reflection.message,"background",surf.usage);s.nextWakeAt=now()+clamp(surf.reflection?.next_minutes||30,1,720)*60000;}await putState(env,s);return surf;
@@ -139,7 +143,7 @@ export default {
       ctx.waitUntil(processChatJob(env,id));return j({accepted:true,jobId:id,duplicate:already},202,env);
     }
     if(url.pathname==="/sync"&&req.method==="GET"){
-      const s=await getState(env)||initialState();return j({messages:[...(s.outbox||[])],pending:(s.pending||[]).map(x=>({id:x.id,status:x.status,createdAt:x.createdAt,attempts:x.attempts})),state:{mood:s.mood,rules:s.rules,privateThoughts:s.privateThoughts,ideas:s.ideas,unfinished:s.unfinished,nextWakeAt:s.nextWakeAt,wakeCount:s.wakeCount,surfEnabled:s.surfEnabled,surfAdult:s.surfAdult,surfStats:s.surfStats,surfHistory:(s.surfHistory||[]).slice(-3)}},200,env);
+      const s=await getState(env)||initialState();return j({messages:[...(s.outbox||[])],pending:(s.pending||[]).map(x=>({id:x.id,status:x.status,createdAt:x.createdAt,attempts:x.attempts})),state:{mood:s.mood,rules:s.rules,privateThoughts:s.privateThoughts,ideas:s.ideas,unfinished:s.unfinished,nextWakeAt:s.nextWakeAt,wakeCount:s.wakeCount,wakeTrace:(s.wakeTrace||[]).slice(-10),surfEnabled:s.surfEnabled,surfAdult:s.surfAdult,surfStats:s.surfStats,surfHistory:(s.surfHistory||[]).slice(-3)}},200,env);
     }
     if(url.pathname==="/ack"&&req.method==="POST"){
       const body=await req.json(),ids=new Set(Array.isArray(body.ids)?body.ids.map(String):[]);let s=await getState(env)||initialState();s.outbox=(s.outbox||[]).filter(x=>!ids.has(String(x.id)));await putState(env,s);return j({ok:true,remaining:s.outbox.length},200,env);
