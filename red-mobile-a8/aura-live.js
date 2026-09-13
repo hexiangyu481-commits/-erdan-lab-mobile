@@ -1,8 +1,8 @@
-// R Aura live fallback v1.1.1
-// Server Aura remains authoritative. If a chat reply arrives without fresh Aura metadata,
-// infer a temporary visual state only from R's own visible words so the UI never feels dead.
+// R Aura live fallback v1.1.2
+// Server Aura remains authoritative when it was updated with the current reply.
+// Otherwise infer a temporary visual state only from R's own visible words so the UI never feels dead.
 (function(){
-  const V='1.1.1';
+  const V='1.1.2';
   const SERVER_AURA='red.a8.server.auraState';
   let timer=0,lastText='';
   function safe(s,f=null){try{return JSON.parse(s)}catch{return f}}
@@ -36,7 +36,7 @@ html[data-r-aura="hesitant"] .assistant .bubble{border-color:rgba(207,137,181,.2
   function applyFallback(){
     if(!window.REDAura)return;
     const b=latestAssistant();if(!b)return;const text=(b.childNodes[0]?.textContent||b.textContent||'').trim();if(!text||text===lastText)return;lastText=text;
-    const server=safe(localStorage.getItem(SERVER_AURA),null),fresh=Number(server?.updatedAt||0)>Date.now()-90000;
+    const server=safe(localStorage.getItem(SERVER_AURA),null),fresh=Number(server?.updatedAt||0)>Date.now()-8000;
     if(fresh&&server?.mode)return;
     const mode=infer(text);if(mode)window.REDAura.apply(mode);
   }
