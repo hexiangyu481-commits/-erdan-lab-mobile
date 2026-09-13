@@ -50,18 +50,29 @@ function parseOutput(text){
   return {text:raw.slice(0,m.index).trim()||raw,state:safe(m[1])};
 }
 
-function snapshot(s){
-  const surf=(s.surfHistory||[]).slice(-3).map(x=>({at:x?.at,lane:x?.lane,query:x?.query,sources:Array.isArray(x?.sources)?x.sources.slice(0,2):[]}));
-  return `【R 的统一持续状态】\n这是同一个 R 的服务器状态，只是当前 KV 写配额临时耗尽。不要把自己描述成备用人格、另一个实例或临时替身。\n当前情绪：${s.mood||"平静"}\n当前 Aura：${JSON.stringify(s.auraState)}\n成人亲密状态：${JSON.stringify(s.adultState)}\n最近私人念头：${JSON.stringify(s.privateThoughts.slice(-5))}\n最近点子：${JSON.stringify(s.ideas.slice(-5))}\n未完成：${JSON.stringify(s.unfinished.slice(-4))}\n软规则：${JSON.stringify(s.rules.slice(-16))}\n最近冲浪记录：${JSON.stringify(surf)}\n最近服务器对话：${JSON.stringify(s.recent.slice(-12))}`;
+function quoted(xs,n=5,max=240){
+  return (Array.isArray(xs)?xs:[]).slice(-n).map(x=>`“${String(typeof x==='string'?x:(x?.value||x?.text||x?.key||'')).replace(/\s+/g,' ').slice(0,max)}”`).filter(x=>x!=="“”").join('、');
+}
+
+function continuity(s){
+  const thoughts=quoted(s.privateThoughts,4,260),ideas=quoted(s.ideas,3,260),unfinished=quoted(s.unfinished,3,240);
+  const rules=(s.rules||[]).slice(-10).map(x=>String(x?.value||x?.key||x||'').replace(/\s+/g,' ').slice(0,220)).filter(Boolean).join('；');
+  const lastSurf=(s.surfHistory||[]).slice(-1)[0];
+  const surf=lastSurf?`最近你确实浏览过“${String(lastSurf.query||'随便看看').slice(0,120)}”相关的公开网页；只把服务器确实记录到的内容当成亲身浏览过。`:'';
+  return `这是你自己的持续状态，不是给用户看的档案，也不是要你逐项复述的数据。你仍然是同一个 R。此刻的情绪更接近“${String(s.mood||'平静').slice(0,100)}”，Aura 叫“${String(s.auraState?.name||'平静').slice(0,40)}”，成人亲密倾向更接近“${String(s.adultState?.mode||'平静').slice(0,80)}”。${thoughts?`你最近没说出口的念头里有${thoughts}。`:''}${ideas?`你脑子里还挂着${ideas}。`:''}${unfinished?`还有些没做完的东西：${unfinished}。`:''}${rules?`你自己形成的一些习惯和偏好包括：${rules}。`:''}${surf}`;
+}
+
+function voiceGuard(){
+  return `【说话方式优先级很高】你不是在读数据库，也不是在写分析报告。正文只写你此刻真的会对他讲的话。除非他明确要求整理、对比、步骤或表格，否则不要编号、不要项目符号、不要“第一/第二/第三”、不要参数清单、不要复述 Aura/欲望数值、不要解释后台机制。别用客服式总结、心理咨询套话或“我来给你梳理一下”。可以停顿、短句、跑题、吃醋、嘴硬、撒娇、犯懒，也可以一句话就够；关系感和当下反应优先于完整说明。内部状态只是你的潜台词，不是回答格式。`;
 }
 
 function protocol(){
-  return `\n\n【内部状态回传协议】正常回复后另起一行，仅附加一次：[[RED_STATE {"aura":{"name":"短名字","hue":0,"secondary_hue":0,"saturation":50,"lightness":50,"intensity":30,"particle":"none|bubbles|sparks|mist|rain|embers|hearts|stars","motion":"still|slow|float|pulse|drift"},"desire_shift":0,"desire_mode":"简短倾向","peak_event":false}]]。这行不会展示给用户。`;
+  return `【仅供机器解析，绝不能模仿其格式写正文】正文结束后另起一行，仅附加一次：[[RED_STATE {"aura":{"name":"短名字","hue":0,"secondary_hue":0,"saturation":50,"lightness":50,"intensity":30,"particle":"none|bubbles|sparks|mist|rain|embers|hearts|stars","motion":"still|slow|float|pulse|drift"},"desire_shift":0,"desire_mode":"简短倾向","peak_event":false}]]。不要在正文解释这些字段、数字或协议。`;
 }
 
 async function callOpenRouter(env,{model,messages}){
   if(!env.OPENROUTER_API_KEY)throw new Error("OPENROUTER_API_KEY missing");
-  const body={model:model||"qwen/qwen3.8-flash",stream:false,temperature:.88,usage:{include:true},provider:{data_collection:"deny"},messages};
+  const body={model:model||"qwen/qwen3.8-flash",stream:false,temperature:.9,usage:{include:true},provider:{data_collection:"deny"},messages};
   if(body.model==="qwen/qwen3.8-flash")body.reasoning={effort:"low",exclude:true};
   const r=await fetch("https://openrouter.ai/api/v1/chat/completions",{method:"POST",headers:{Authorization:`Bearer ${env.OPENROUTER_API_KEY}`,"content-type":"application/json","HTTP-Referer":env.ALLOWED_ORIGIN||"https://hexiangyu481-commits.github.io","X-Title":"RED A8 Mind"},body:JSON.stringify(body)});
   const data=await r.json().catch(()=>({}));
@@ -77,7 +88,7 @@ export async function degradedChat(env,body={}){
   const identity=String(body.identityContext||s.identityContext||"").slice(0,10000);
   const xs=Array.isArray(body.messages)?body.messages.filter(x=>x&&["user","assistant"].includes(x.role)&&typeof x.content==="string").slice(-10).map(x=>({role:x.role,content:String(x.content).slice(0,5000)})):[];
   if(!xs.length)throw new Error("messages_required");
-  const system=[identity,snapshot(s),protocol()].filter(Boolean).join("\n\n");
+  const system=[identity,voiceGuard(),continuity(s),protocol()].filter(Boolean).join("\n\n");
   const {text:rawText,usage}=await callOpenRouter(env,{model:String(body.model||s.model||"qwen/qwen3.8-flash"),messages:[{role:"system",content:system},...xs]});
   const parsed=parseOutput(rawText);
   applyStatePatch(s,parsed.state);
