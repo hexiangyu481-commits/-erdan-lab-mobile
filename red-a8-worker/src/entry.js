@@ -2,7 +2,7 @@ import core from "./index.js";
 import {publicPushConfig,subscribePush,unsubscribePush,sendPush,notifyNewOutbox} from "./push.js";
 import {degradedChat,isKVWriteLimitError} from "./degraded-chat.js";
 
-const VERSION=17;
+const VERSION=18;
 const JSON_HEADERS={"content-type":"application/json; charset=utf-8"};
 const cors=()=>({
   "access-control-allow-origin":"*",
@@ -27,7 +27,7 @@ async function diagnostic(req,env){
   let kvRead=false;
   try{await env.RED_STATE.get("state");kvRead=true}catch(e){return j({ok:false,error:"RED_STATE unreadable",detail:String(e?.message||e).slice(0,180),version:VERSION,auth:true,bindings,kvRead:false},500)}
   if(!bindings.openRouterKey)return j({ok:false,error:"OPENROUTER_API_KEY missing",version:VERSION,auth:true,bindings,kvRead},500);
-  return j({ok:true,name:"red-a8-mind",version:VERSION,auth:true,bindings,kvRead,corsWildcard:true,kvWriteLimitFallback:true,time:Date.now()},200);
+  return j({ok:true,name:"red-a8-mind",version:VERSION,auth:true,bindings,kvRead,corsWildcard:true,kvWriteLimitFallback:true,naturalVoiceDegraded:true,time:Date.now()},200);
 }
 
 async function transportDiagnostic(req,env){
@@ -85,7 +85,7 @@ export default {
   async fetch(req,env,ctx){
     const url=new URL(req.url);
     if(req.method==="OPTIONS")return new Response(null,{status:204,headers:cors()});
-    if(url.pathname==="/health")return j({ok:true,name:"red-a8-mind",version:VERSION,push:true,chatRecovery:true,resumableChat:true,compactContext:true,serverRecentLimit:10,wakeTrace:true,proactiveFollowUp:true,adultDesire:true,aura:true,auraContinuous:true,auraTextInference:false,peakEvent:true,corsWildcard:true,diagnostic:true,postDiagnostic:true,errorBoundary:true,kvWriteLimitFallback:true,time:Date.now()},200);
+    if(url.pathname==="/health")return j({ok:true,name:"red-a8-mind",version:VERSION,push:true,chatRecovery:true,resumableChat:true,compactContext:true,serverRecentLimit:10,wakeTrace:true,proactiveFollowUp:true,adultDesire:true,aura:true,auraContinuous:true,auraTextInference:false,peakEvent:true,corsWildcard:true,diagnostic:true,postDiagnostic:true,errorBoundary:true,kvWriteLimitFallback:true,naturalVoiceDegraded:true,time:Date.now()},200);
     if(url.pathname==="/diagnostic"&&req.method==="GET")return diagnostic(req,env);
     if(url.pathname==="/diagnostic/transport"&&req.method==="POST")return transportDiagnostic(req,env);
 
