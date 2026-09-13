@@ -5,6 +5,7 @@ const JSON_HEADERS={"content-type":"application/json; charset=utf-8"};
 const cors=(env)=>({"access-control-allow-origin":env.ALLOWED_ORIGIN||"*","access-control-allow-methods":"GET,POST,OPTIONS","access-control-allow-headers":"content-type,x-red-token"});
 const j=(data,status=200,env={})=>new Response(JSON.stringify(data),{status,headers:{...JSON_HEADERS,...cors(env)}});
 const auth=(req,env)=>!!env.RED_SHARED_TOKEN&&req.headers.get("x-red-token")===env.RED_SHARED_TOKEN;
+const STALLED_CHAT_MS=35000;
 
 function wrappedCtx(ctx,env){
   return {
@@ -15,11 +16,26 @@ function wrappedCtx(ctx,env){
   };
 }
 
+async function recoverStalledPending(env){
+  try{
+    const raw=await env.RED_STATE.get("state");if(!raw)return 0;
+    const state=JSON.parse(raw);if(!state||!Array.isArray(state.pending))return 0;
+    const cutoff=Date.now()-STALLED_CHAT_MS;let recovered=0;
+    for(const job of state.pending){
+      if(job?.status==="processing"&&Number(job.startedAt||0)>0&&Number(job.startedAt)<cutoff){
+        job.status="queued";job.startedAt=0;job.recoveredAt=Date.now();recovered++;
+      }
+    }
+    if(recovered){await env.RED_STATE.put("state",JSON.stringify(state));console.warn(`RED recovered ${recovered} stalled chat job(s)`)}
+    return recovered;
+  }catch(e){console.warn("RED stalled-chat recovery skipped",String(e?.message||e));return 0}
+}
+
 export default {
   async fetch(req,env,ctx){
     const url=new URL(req.url);
     if(req.method==="OPTIONS")return new Response(null,{status:204,headers:cors(env)});
-    if(url.pathname==="/health")return j({ok:true,name:"red-a8-mind",version:6,push:true,time:Date.now()},200,env);
+    if(url.pathname==="/health")return j({ok:true,name:"red-a8-mind",version:7,push:true,chatRecovery:true,time:Date.now()},200,env);
 
     if(url.pathname.startsWith("/push/")){
       if(!auth(req,env))return j({error:"unauthorized"},401,env);
@@ -36,5 +52,8 @@ export default {
     ctx.waitUntil(notifyNewOutbox(env).catch(e=>console.warn("RED push scan skipped",String(e?.message||e))));
     return res;
   },
-  async scheduled(event,env,ctx){return core.scheduled(event,env,wrappedCtx(ctx,env));}
+  async scheduled(event,env,ctx){
+    await recoverStalledPending(env);
+    return core.scheduled(event,env,wrappedCtx(ctx,env));
+  }
 };
