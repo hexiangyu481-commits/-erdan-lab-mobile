@@ -10,7 +10,7 @@
     }
   ],
   "triggers": {
-    "crons": ["* * * * *"]
+    "crons": ["*/5 * * * *"]
   },
   "vars": {
     "ALLOWED_ORIGIN": "https://hexiangyu481-commits.github.io"
