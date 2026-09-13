@@ -1,8 +1,8 @@
-// RED A8 context loader v1 — keep the same R without rereading her whole archive every turn.
+// RED A8 context loader v1.1 — keep the same R without rereading her whole archive every turn.
 (function(){
-  const V='1.0.0';
+  const V='1.1.0';
   const AUTO_START='【RED 自主长期记忆】',AUTO_END='【/RED 自主长期记忆】';
-  const RECENT_CHAT=12,SERVER_CHAT=10;
+  const RECENT_CHAT=12,SERVER_CHAT=10,VISION_CHAT=10;
 
   const clean=s=>String(s||'').replace(/\s+/g,' ').trim();
   function clip(s,max){s=String(s||'').trim();if(s.length<=max)return s;const a=Math.floor(max*.46),b=max-a;return s.slice(0,a)+'\n…（中段已由记忆系统压缩，不在本轮重复装载）…\n'+s.slice(-b)}
@@ -45,5 +45,11 @@
   // Direct/image fallback also becomes lighter; server chat gets identity separately and never duplicates it in messages.
   systemPrompt=compactSystemPrompt;
   contextMessages=directMessages;
-  window.REDContext={version:V,systemPrompt:compactSystemPrompt,serverMessages,serverIdentityContext,compactMemory,limits:{directRecent:RECENT_CHAT,serverRecent:SERVER_CHAT}};
+  if(typeof visionTurn==='function')visionTurn=async function(text,files,b){
+    const data=await Promise.all(files.map(fileToDataURL)),recentMsgs=history.slice(0,-1).slice(-VISION_CHAT).map(m=>({role:m.role,content:m.content}));
+    const content=[{type:'text',text:text||(files.length>1?'看看这些图，结合起来直接以 RED 的身份回应我。':'看看这张图，直接以 RED 的身份回应我。')}];
+    for(const url of data)content.push({type:'image_url',image_url:{url}});
+    return await streamOpenRouter([{role:'system',content:compactSystemPrompt()},...recentMsgs,{role:'user',content}],localStorage.getItem(K.vision)||DEFAULT_VISION,b);
+  };
+  window.REDContext={version:V,systemPrompt:compactSystemPrompt,serverMessages,serverIdentityContext,compactMemory,limits:{directRecent:RECENT_CHAT,serverRecent:SERVER_CHAT,visionRecent:VISION_CHAT}};
 })();
