@@ -6,6 +6,8 @@ const cors=(env)=>({"access-control-allow-origin":env.ALLOWED_ORIGIN||"*","acces
 const j=(data,status=200,env={})=>new Response(JSON.stringify(data),{status,headers:{...JSON_HEADERS,...cors(env)}});
 const auth=(req,env)=>!!env.RED_SHARED_TOKEN&&req.headers.get("x-red-token")===env.RED_SHARED_TOKEN;
 const STALLED_CHAT_MS=35000;
+const CHAT_RECEIPT_TTL=30*24*60*60;
+const chatReceiptKey=id=>`chat-receipt:${String(id||'').slice(0,160)}`;
 
 function wrappedCtx(ctx,env){
   return {
@@ -31,11 +33,19 @@ async function recoverStalledPending(env){
   }catch(e){console.warn("RED stalled-chat recovery skipped",String(e?.message||e));return 0}
 }
 
+async function chatReceipt(req,env,url){
+  if(url.pathname!=="/chat"||req.method!=="POST"||!auth(req,env))return {jobId:"",duplicate:false};
+  try{
+    const body=await req.clone().json(),jobId=String(body?.jobId||"").trim().slice(0,160);if(!jobId)return {jobId:"",duplicate:false};
+    const prior=await env.RED_STATE.get(chatReceiptKey(jobId));return {jobId,duplicate:!!prior};
+  }catch{return {jobId:"",duplicate:false}}
+}
+
 export default {
   async fetch(req,env,ctx){
     const url=new URL(req.url);
     if(req.method==="OPTIONS")return new Response(null,{status:204,headers:cors(env)});
-    if(url.pathname==="/health")return j({ok:true,name:"red-a8-mind",version:11,push:true,chatRecovery:true,wakeTrace:true,proactiveFollowUp:true,adultDesire:true,aura:true,auraContinuous:true,auraTextInference:false,peakEvent:true,time:Date.now()},200,env);
+    if(url.pathname==="/health")return j({ok:true,name:"red-a8-mind",version:12,push:true,chatRecovery:true,resumableChat:true,idempotentChatReceipts:true,wakeTrace:true,proactiveFollowUp:true,adultDesire:true,aura:true,auraContinuous:true,auraTextInference:false,peakEvent:true,time:Date.now()},200,env);
 
     if(url.pathname.startsWith("/push/")){
       if(!auth(req,env))return j({error:"unauthorized"},401,env);
@@ -48,7 +58,14 @@ export default {
       }catch(e){return j({error:String(e?.message||e)},500,env)}
     }
 
+    const receipt=await chatReceipt(req,env,url);
+    if(receipt.duplicate)return j({accepted:true,jobId:receipt.jobId,duplicate:true,resumed:true},202,env);
+
     const res=await core.fetch(req,env,wrappedCtx(ctx,env));
+    if(receipt.jobId&&res.status>=200&&res.status<300){
+      try{await env.RED_STATE.put(chatReceiptKey(receipt.jobId),String(Date.now()),{expirationTtl:CHAT_RECEIPT_TTL})}
+      catch(e){console.warn("RED chat receipt write skipped",String(e?.message||e))}
+    }
     ctx.waitUntil(notifyNewOutbox(env).catch(e=>console.warn("RED push scan skipped",String(e?.message||e))));
     return res;
   },
