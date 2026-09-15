@@ -3,7 +3,7 @@ import {publicPushConfig,subscribePush,unsubscribePush,sendPush,notifyNewOutbox}
 import {degradedChat,isKVWriteLimitError} from "./degraded-chat.js";
 import {acceptMedia,mediaStatus,resumeOneMedia} from "./media.js";
 
-const VERSION=19;
+const VERSION=20;
 const JSON_HEADERS={"content-type":"application/json; charset=utf-8"};
 const cors=()=>({
   "access-control-allow-origin":"*",
@@ -28,7 +28,7 @@ async function diagnostic(req,env){
   let kvRead=false;
   try{await env.RED_STATE.get("state");kvRead=true}catch(e){return j({ok:false,error:"RED_STATE unreadable",detail:String(e?.message||e).slice(0,180),version:VERSION,auth:true,bindings,kvRead:false},500)}
   if(!bindings.openRouterKey)return j({ok:false,error:"OPENROUTER_API_KEY missing",version:VERSION,auth:true,bindings,kvRead},500);
-  return j({ok:true,name:"red-a8-mind",version:VERSION,auth:true,bindings,kvRead,corsWildcard:true,kvWriteLimitFallback:true,naturalVoiceDegraded:true,mediaQueue:true,imageBackground:true,voiceInput:true,time:Date.now()},200);
+  return j({ok:true,name:"red-a8-mind",version:VERSION,auth:true,bindings,kvRead,corsWildcard:true,kvWriteLimitFallback:true,naturalVoiceDegraded:true,mediaQueue:true,imageBackground:true,voiceInput:true,bodyLanguage:true,identityContextPreserved:true,time:Date.now()},200);
 }
 
 async function transportDiagnostic(req,env){
@@ -71,12 +71,15 @@ async function compactChatRequest(req,url){
   if(url.pathname!=="/chat"||req.method!=="POST")return req;
   try{
     const body=await req.clone().json();
+    const identity=typeof body.identityContext==="string"?body.identityContext.slice(0,10000).trim():"";
     if(Array.isArray(body.messages)){
       let xs=body.messages.filter(x=>x&&["system","user","assistant"].includes(x.role)&&typeof x.content==="string");
-      if(String(body.identityContext||"").trim())xs=xs.filter(x=>x.role!=="system");
-      body.messages=xs.slice(-10).map(x=>({role:x.role,content:String(x.content).slice(0,5000)}));
-    }
-    if(typeof body.identityContext==="string")body.identityContext=body.identityContext.slice(0,10000);
+      if(identity)xs=xs.filter(x=>x.role!=="system");
+      xs=xs.slice(-10).map(x=>({role:x.role,content:String(x.content).slice(0,5000)}));
+      if(identity)xs.unshift({role:"system",content:identity});
+      body.messages=xs;
+    }else if(identity)body.messages=[{role:"system",content:identity}];
+    if(typeof body.identityContext==="string")body.identityContext=identity;
     const headers=new Headers(req.headers);headers.set("content-type","application/json");
     return new Request(req.url,{method:req.method,headers,body:JSON.stringify(body)});
   }catch(e){console.warn("RED compact context skipped",String(e?.message||e));return req}
@@ -86,7 +89,7 @@ export default {
   async fetch(req,env,ctx){
     const url=new URL(req.url);
     if(req.method==="OPTIONS")return new Response(null,{status:204,headers:cors()});
-    if(url.pathname==="/health")return j({ok:true,name:"red-a8-mind",version:VERSION,push:true,chatRecovery:true,resumableChat:true,compactContext:true,serverRecentLimit:10,wakeTrace:true,proactiveFollowUp:true,adultDesire:true,aura:true,auraContinuous:true,auraTextInference:false,peakEvent:true,corsWildcard:true,diagnostic:true,postDiagnostic:true,errorBoundary:true,kvWriteLimitFallback:true,naturalVoiceDegraded:true,mediaQueue:true,imageBackground:true,voiceInput:true,time:Date.now()},200);
+    if(url.pathname==="/health")return j({ok:true,name:"red-a8-mind",version:VERSION,push:true,chatRecovery:true,resumableChat:true,compactContext:true,serverRecentLimit:10,wakeTrace:true,proactiveFollowUp:true,adultDesire:true,aura:true,auraContinuous:true,auraTextInference:false,peakEvent:true,corsWildcard:true,diagnostic:true,postDiagnostic:true,errorBoundary:true,kvWriteLimitFallback:true,naturalVoiceDegraded:true,mediaQueue:true,imageBackground:true,voiceInput:true,bodyLanguage:true,identityContextPreserved:true,time:Date.now()},200);
     if(url.pathname==="/diagnostic"&&req.method==="GET")return diagnostic(req,env);
     if(url.pathname==="/diagnostic/transport"&&req.method==="POST")return transportDiagnostic(req,env);
     if(url.pathname==="/media/status"&&req.method==="GET"){
