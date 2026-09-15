@@ -1,4 +1,5 @@
 import webpush from "web-push";
+import {extractBody} from "./body-state.js";
 
 const VAPID_KEY="push:vapid";
 const SUBS_KEY="push:subscriptions";
@@ -73,7 +74,8 @@ export async function notifyNewOutbox(env){
   const outbox=await currentOutbox(env),seen=await sentIds(env),known=new Set(seen);let sent=0;
   for(const m of outbox){
     const id=String(m?.id||"");if(!id||known.has(id)||m?.role!=="assistant"||!String(m?.content||"").trim())continue;
-    const r=await sendPush(env,{title:"R",body:String(m.content),tag:`red-a8-${id}`});
+    const body=extractBody(String(m.content)).text.trim();if(!body)continue;
+    const r=await sendPush(env,{title:"R",body,tag:`red-a8-${id}`});
     if(r.sent>0){known.add(id);seen.push(id);sent+=r.sent}
   }
   await saveSentIds(env,seen);return {ok:true,sent};
