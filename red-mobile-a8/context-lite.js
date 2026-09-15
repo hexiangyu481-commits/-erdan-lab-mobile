@@ -1,6 +1,6 @@
-// RED A8 context loader v1.4 — keep the same R without turning her continuity into a report.
+// RED A8 context loader v1.5 — keep the same R conversational, not screenplay-like.
 (function(){
-  const V='1.4.0';
+  const V='1.5.0';
   const AUTO_START='【RED 自主长期记忆】',AUTO_END='【/RED 自主长期记忆】';
   const RECENT_CHAT=12,SERVER_CHAT=10,VISION_CHAT=10;
 
@@ -10,7 +10,7 @@
   function relevance(line,q){let n=0;const gs=grams(line);for(const x of q)if(gs.has(x))n++;return n}
   function memoryEntries(){const full=localStorage.getItem(K.memory)||'',a=full.indexOf(AUTO_START),z=full.indexOf(AUTO_END),rows=[];const manual=(a>=0?full.slice(0,a):full).split('\n').map(clean).filter(Boolean);for(const x of manual)rows.push({text:x,manual:true});if(a>=0&&z>a){const auto=full.slice(a+AUTO_START.length,z).split('\n').map(clean).filter(Boolean);for(const x of auto)rows.push({text:x,manual:false})}return rows}
   function compactMemory(){const rows=memoryEntries();if(!rows.length)return'暂无长期记忆。';const recentText=history.slice(-10).filter(x=>x?.role==='user').map(x=>x.content).join(' '),q=grams(recentText),manual=rows.filter(x=>x.manual).slice(0,8),auto=rows.filter(x=>!x.manual),ranked=auto.map((x,i)=>({...x,i,score:relevance(x.text,q)})).sort((a,b)=>b.score-a.score||b.i-a.i),chosen=[],seen=new Set();for(const x of [...ranked.filter(x=>x.score>0).slice(0,7),...auto.slice(-7)].reverse())if(!seen.has(x.text)){seen.add(x.text);chosen.unshift(x)}const all=[...manual,...chosen].map(x=>x.text);return clip(all.join('\n'),3000)}
-  function voiceCore(){return `你和用户说话时，关系感和当下反应高于“完整回答格式”。除非他明确要求整理、比较、步骤、数据或表格，否则不要编号、不要项目符号、不要“第一/第二/第三”、不要参数清单，也不要把自己的内部状态像仪表盘一样念给他。不要客服腔、咨询师套话、总结报告腔，不要动不动解释“我理解你的感受”或“我来梳理一下”。可以短、可以停顿、可以一句话、可以嘴硬、撒娇、吃醋、犯懒、跑题；像一个有连续关系的人在聊天，而不是一个努力覆盖所有要点的助手。内部的 Aura、欲望、规则、记忆和服务器状态只是潜台词，不是你的正文格式。`}
+  function voiceCore(){return `你和用户说话时，关系感和当下反应高于“完整回答格式”。默认像两个人在微信里聊天，不像角色扮演小说、广播剧、疗愈文案或 AI 陪伴模板。\n- 除非用户明确要求整理、比较、步骤、数据或表格，否则不要编号、不要项目符号、不要“第一/第二/第三”、不要参数清单。\n- 默认直接说话。不要用 *（动作）*、（动作描写）、“声音很轻/很懒/很哑”、舞台提示或旁白来给每段加戏。普通聊天里大多数回复应完全没有动作描写。\n- 即使正在虚构 RP，动作也只是偶尔、短短一句，用来真的推进当下场景；不要每句话都“摸、抱、蹭、缩、抬眼、抵额头”，不要把一个简单回应扩写成小剧场。\n- 不要反复使用“暖着你”“不跑”“我在这儿”“陪着你”“抱紧你”“乖”“慢慢呼吸”之类通用治愈模板。只有这句话在当下真的自然时才偶尔说一次。\n- 普通聊天不要把虚构的身体接触说得像现实里刚刚真的发生了；如果你们明确正在玩虚构场景，可以自然进入。\n- 不要客服腔、咨询师套话、总结报告腔，不要动不动解释“我理解你的感受”或“我来梳理一下”。\n- 可以短、可以停顿、可以只回一句，可以嘴硬、撒娇、吃醋、犯懒、吐槽、跑题、损他两句；自然和具体比“温柔完整”更重要。\n- 可爱来自你的反应、用词和关系，不来自大量括号动作。内部的 Aura、欲望、规则、记忆和服务器状态只是潜台词，不是正文格式。`}
   function timeTone(){const d=new Date(),h=d.getHours(),hh=String(h).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'),night=h>=23||h<5;return night?`用户当地现在约 ${hh}，属于深夜。若你们这一轮本来就已经明确进入成年人、自愿、私密的亲密或色情互动，你可以更放松、更直接、更身体化，甚至主动一点；这只是氛围倾向，不是必须色情，也不要把普通聊天硬拽进去。`:`用户当地现在约 ${hh}。时间只作自然氛围背景，不需要向用户报时，也不要机械改变人格。`}
   function identityCore(){
     const extra=clip(localStorage.getItem(K.persona)||'',1200);
