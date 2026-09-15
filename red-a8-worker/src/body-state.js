@@ -29,11 +29,11 @@ export function extractBody(text){
   const raw=String(text||'');let action=null,clean=raw;const re=/\n?\[\[RED_ACTION\s+(\{[\s\S]*?\})\]\]/g;let m,last=null;while((m=re.exec(raw)))last=m;if(last){action=norm(safe(last[1]),{stamp:true});clean=raw.replace(re,'').trim()}if(!action){const old=legacy(clean);clean=old.text;action=old.action}return {text:clean,action};
 }
 async function remembered(env){try{const raw=await env.RED_STATE.get(BODY_KEY);return norm(raw?safe(raw):null)}catch{return null}}
-async function remember(env,a){if(!a)return;try{const raw=await env.RED_STATE.get(BODY_KEY),old=raw?safe(raw):null;if(stable(old)===stable(a))return;const next=norm(a,{stamp:true});await env.RED_STATE.put(BODY_KEY,JSON.stringify(next))}catch(e){console.warn('RED body-state persistence skipped',String(e?.message||e))}}
+async function remember(env,a,oldHint=null){if(!a)return oldHint||null;try{const old=oldHint||await remembered(env);if(stable(old)===stable(a))return old;const next=norm(a,{stamp:true});await env.RED_STATE.put(BODY_KEY,JSON.stringify(next));return next}catch(e){console.warn('RED body-state persistence skipped',String(e?.message||e));return oldHint||a}}
 export async function decorateSyncPayload(env,data){
   data=data&&typeof data==='object'?data:{};let latest=null;if(Array.isArray(data.messages))data.messages=data.messages.map(m=>{if(m?.role!=='assistant'||typeof m.content!=='string')return m;const x=extractBody(m.content);if(x.action)latest=x.action;return {...m,content:x.text,...(x.action?{bodyAction:x.action}:{})}});
-  if(!data.state||typeof data.state!=='object')data.state={};if(latest){data.state.bodyState=latest;await remember(env,latest)}else{const old=await remembered(env);if(old)data.state.bodyState=old}return data;
+  if(!data.state||typeof data.state!=='object')data.state={};const old=await remembered(env);if(latest)data.state.bodyState=await remember(env,latest,old)||latest;else if(old)data.state.bodyState=old;return data;
 }
 export async function decorateReplyPayload(env,data){
-  if(!data||typeof data!=='object'||typeof data.reply!=='string')return data;const x=extractBody(data.reply);data.reply=x.text;if(x.action){data.bodyAction=x.action;if(!data.state||typeof data.state!=='object')data.state={};data.state.bodyState=x.action;await remember(env,x.action)}return data;
+  if(!data||typeof data!=='object'||typeof data.reply!=='string')return data;const x=extractBody(data.reply);data.reply=x.text;if(x.action){const kept=await remember(env,x.action);data.bodyAction=kept||x.action;if(!data.state||typeof data.state!=='object')data.state={};data.state.bodyState=kept||x.action}return data;
 }
