@@ -1,6 +1,6 @@
 // R Stage v1.0 — large transparent-body window driven by the same R body state.
 (function(){
-  const V='1.0.0';
+  const V='1.1.0';
   const BODY_KEY='red.a8.server.bodyState';
   let currentState=null,currentPose='',microTimer=null,activeTimer=null;
   const safe=s=>{try{return JSON.parse(s)}catch{return null}};
@@ -26,7 +26,7 @@
     if(document.getElementById('rStage'))return;
     const style=document.createElement('style');style.id='rStageStyle';style.textContent=`
 #rAvatarFrame{display:none!important}
-#rStage{position:relative;height:clamp(190px,27vh,250px);margin:10px 14px 8px;border-radius:24px;isolation:isolate;pointer-events:none;overflow:visible;transition:height .35s ease,filter .55s ease}
+#rStage{position:relative;flex:0 0 clamp(190px,27vh,250px);height:clamp(190px,27vh,250px);min-height:190px;max-height:250px;margin:10px 14px 8px;border-radius:24px;isolation:isolate;pointer-events:none;overflow:visible;transition:height .35s ease,filter .55s ease}
 #rStage::before{content:'';position:absolute;inset:0;border-radius:24px;overflow:hidden;background:radial-gradient(90% 120% at 70% 24%,var(--ra-soft,rgba(207,73,98,.19)),transparent 55%),linear-gradient(145deg,rgba(255,255,255,.045),rgba(255,255,255,.012));border:1px solid color-mix(in srgb,var(--ra-accent,#cf4962) 25%,rgba(255,255,255,.10));box-shadow:inset 0 1px rgba(255,255,255,.035),0 12px 38px rgba(0,0,0,.18);backdrop-filter:blur(3px)}
 #rStage::after{content:'';position:absolute;left:9%;right:9%;bottom:4px;height:18px;border-radius:50%;background:radial-gradient(ellipse,rgba(0,0,0,.22),transparent 68%);filter:blur(5px);opacity:.38;z-index:-1}
 #rStageBody{position:absolute;inset:-10px 4px -2px;display:grid;place-items:end center;overflow:hidden;border-radius:22px}
@@ -52,7 +52,7 @@
 @keyframes rStageTurn{0%{transform:translateX(-50%) scale(var(--rs-scale,1)) rotateY(0)}48%{transform:translateX(-50%) scale(calc(var(--rs-scale,1) * .94)) rotateY(92deg)}100%{transform:translateX(-50%) scale(var(--rs-scale,1)) rotateY(0)}}
 @keyframes rStageGlance{0%,100%{transform:translateX(-50%) scale(var(--rs-scale,1))}50%{transform:translateX(calc(-50% + 5px)) scale(var(--rs-scale,1)) rotate(.7deg)}}
 @keyframes rStageLookDown{0%,100%{transform:translateX(-50%) scale(var(--rs-scale,1))}55%{transform:translateX(-50%) translateY(4px) scale(var(--rs-scale,1)) rotate(1deg)}}
-@media(max-height:700px){#rStage{height:185px}}
+@media(max-height:700px){#rStage{flex-basis:185px;height:185px;min-height:185px;max-height:185px}}
 @media(prefers-reduced-motion:reduce){#rStage *,#rStage{animation:none!important;transition:none!important}}
 `;
     document.head.appendChild(style);
