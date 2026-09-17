@@ -1,2 +1,3 @@
-Trigger Cloudflare first build for RED A8 worker.
-2026-09-13T01:56:00+08:00
+Trigger Cloudflare build for RED A8 worker.
+2026-09-17T23:58:00+08:00
+v24 turn-idempotency + KV low-write repair
