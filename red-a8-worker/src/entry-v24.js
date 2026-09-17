@@ -3,8 +3,10 @@ import {degradedChat,isKVWriteLimitError} from "./degraded-chat.js";
 import {decorateReplyPayload} from "./body-state.js";
 import {sendPush} from "./push.js";
 import {lowWriteEnv,preflightChat,readEmergencyReplies,storeEmergencyReply,mergeSyncPayload,repairServerState} from "./runtime-guard.js";
+import {acquireChatLease,releaseChatLease,chatLeaseBusy} from "./chat-lease.js";
 
 const VERSION=24;
+const ACTIVE_PROCESSING_MS=35000;
 const JSON_HEADERS={"content-type":"application/json; charset=utf-8"};
 const cors=()=>({
   "access-control-allow-origin":"*",
@@ -23,10 +25,11 @@ async function completedFor(env,jobId){
 }
 
 function guardedCtx(ctx,env,chatBody=null){
-  let fallbackDone=false;
+  let fallbackDone=false,firstWait=true;
   return {
     waitUntil(p){
-      ctx.waitUntil(Promise.resolve(p).catch(async e=>{
+      const chatTask=!!chatBody&&firstWait;firstWait=false;
+      const task=Promise.resolve(p).catch(async e=>{
         if(chatBody&&!fallbackDone&&isKVWriteLimitError(e)){
           const jobId=String(chatBody?.jobId||"");
           if(!(await completedFor(env,jobId))){
@@ -42,7 +45,8 @@ function guardedCtx(ctx,env,chatBody=null){
           return;
         }
         throw e;
-      }));
+      }).finally(async()=>{if(chatTask)await releaseChatLease(String(chatBody?.jobId||""))});
+      ctx.waitUntil(task);
     },
     passThroughOnException(){try{ctx.passThroughOnException?.()}catch{}},
     props:ctx.props,
@@ -63,12 +67,16 @@ export default {
     const url=new URL(req.url),guardEnv=lowWriteEnv(env);
     if(req.method==="OPTIONS")return legacy.fetch(req,guardEnv,ctx);
 
-    let chatBody=null;
+    let chatBody=null,leaseHeld=false;
     if(url.pathname==="/chat"&&req.method==="POST"){
       try{chatBody=await req.clone().json()}catch{}
       if(chatBody){
         const duplicate=await preflightChat(guardEnv,chatBody);
-        if(duplicate)return j({...duplicate,version:VERSION,turnIdempotency:true},202);
+        if(duplicate?.completed)return j({...duplicate,version:VERSION,turnIdempotency:true},202);
+        if(duplicate?.status==="processing"&&Date.now()-Number(duplicate.startedAt||0)<ACTIVE_PROCESSING_MS)return j({...duplicate,version:VERSION,turnIdempotency:true},202);
+        const lease=await acquireChatLease(String(chatBody.jobId||""));
+        if(!lease.ok)return j({error:"chat_busy",accepted:false,retryable:true,retryAfterMs:Number(lease.retryAfterMs||1500),activeJobId:lease.jobId||"",version:VERSION},429);
+        leaseHeld=true;
       }
     }
 
@@ -79,16 +87,23 @@ export default {
       if(!res.ok)return res;
       try{
         const data=mergeSyncPayload(await res.json(),emergency);
-        return j({...data,version:VERSION,turnIdempotency:true,kvLowWrite:true,emergencyMailbox:!!data.emergencyMailbox},res.status);
+        return j({...data,version:VERSION,turnIdempotency:true,chatSerialization:true,kvLowWrite:true,emergencyMailbox:!!data.emergencyMailbox},res.status);
       }catch{return res}
     }
 
-    const res=await legacy.fetch(req,guardEnv,guardedCtx(ctx,guardEnv,chatBody));
-    if(url.pathname==="/health")return upgradeJsonResponse(res,{turnIdempotency:true,syncReplyDedupe:true,kvLowWrite:true,bodyStateWriteThrottle:true,emergencyMailbox:true});
-    if(url.pathname==="/diagnostic"&&req.method==="GET")return upgradeJsonResponse(res,{turnIdempotency:true,syncReplyDedupe:true,kvLowWrite:true,bodyStateWriteThrottle:true,emergencyMailbox:true});
-    return res;
+    try{
+      const res=await legacy.fetch(req,guardEnv,guardedCtx(ctx,guardEnv,chatBody));
+      if(leaseHeld&&res.status!==202){await releaseChatLease(String(chatBody?.jobId||""));leaseHeld=false}
+      if(url.pathname==="/health")return upgradeJsonResponse(res,{turnIdempotency:true,chatSerialization:true,syncReplyDedupe:true,kvLowWrite:true,bodyStateWriteThrottle:true,emergencyMailbox:true});
+      if(url.pathname==="/diagnostic"&&req.method==="GET")return upgradeJsonResponse(res,{turnIdempotency:true,chatSerialization:true,syncReplyDedupe:true,kvLowWrite:true,bodyStateWriteThrottle:true,emergencyMailbox:true});
+      return res;
+    }catch(e){
+      if(leaseHeld)await releaseChatLease(String(chatBody?.jobId||""));
+      throw e;
+    }
   },
   async scheduled(event,env,ctx){
+    if(await chatLeaseBusy())return {skipped:"chat_busy"};
     const guardEnv=lowWriteEnv(env);
     return legacy.scheduled(event,guardEnv,guardedCtx(ctx,guardEnv));
   }
