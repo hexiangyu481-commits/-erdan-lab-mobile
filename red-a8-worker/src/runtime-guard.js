@@ -101,7 +101,7 @@ export async function preflightChat(env,body){
       const done=(s.outbox||[]).find(x=>String(x?.replyTo||"")===id);
       if(done)return {accepted:true,jobId:id,duplicate:true,completed:true,replyId:done.id};
       const pending=(s.pending||[]).find(x=>String(x?.id||"")===id);
-      if(pending)return {accepted:true,jobId:id,duplicate:true,completed:false,status:String(pending.status||"queued")};
+      if(pending)return {accepted:true,jobId:id,duplicate:true,completed:false,status:String(pending.status||"queued"),startedAt:Number(pending.startedAt||0),createdAt:Number(pending.createdAt||0)};
     }
     const emergency=(await readEmergencyReplies()).find(x=>String(x?.replyTo||"")===id);
     if(emergency)return {accepted:true,jobId:id,duplicate:true,completed:true,replyId:emergency.id,degraded:true};
