@@ -26,7 +26,7 @@ jobs:
               if not m:
                   raise RuntimeError(f"missing chunk {i}")
               parts.append(m.group(1))
-          raw=base64.b64decode("".join(parts))
+          b64="".join(parts)\nb64 += "=" * ((4-len(b64)%4)%4)\nraw=base64.b64decode(b64)
           pathlib.Path("hq02.webp").write_bytes(raw)
           im=Image.open("hq02.webp").convert("RGBA")
           print("size", im.size, "bytes", len(raw))
