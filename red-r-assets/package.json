@@ -1,0 +1,21 @@
+{
+  "name": "red-r-assets",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "pack": "node scripts/pack-runtime.mjs"
+  },
+  "cloudflare": {
+    "bindings": {
+      "RED_ASSET_TOKEN": {
+        "description": "R 3D 资源专用私有访问令牌。建议与现有 RED_SHARED_TOKEN 使用同一值，令牌不要写入 Git。"
+      }
+    }
+  },
+  "devDependencies": {
+    "wrangler": "^4.102.0"
+  }
+}
