@@ -1,0 +1,7 @@
+node_modules/
+.dev.vars
+.wrangler/
+
+# Never commit R runtime binaries or manifests to the public repo.
+public/private/*
+!public/private/.gitkeep
