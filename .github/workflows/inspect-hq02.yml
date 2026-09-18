@@ -1,4 +1,4 @@
-name: Inspect HQ02
+name: Inspect R Assets
 on:
   push:
     paths:
@@ -12,50 +12,31 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install pillow
-      - name: Render candidate HQ02 and diff probes
+      - run: pip install pillow pillow-avif-plugin
+      - name: Assemble pose atlas
         run: |
           python - <<'PY'
-          from PIL import Image, ImageChops, ImageDraw
-          import base64,re,pathlib,io,math
+          import base64,re,pathlib,io
+          from PIL import Image
+          import pillow_avif
           parts=[]
-          for i in range(6):
-              s=pathlib.Path(f"red-mobile-a8/assets/r-body-v1/hq02/chunk-{i}.js").read_text(encoding="utf-8")
+          for i in range(8):
+              p=pathlib.Path(f"red-mobile-a8/assets/r-body-v2/atlas/chunk-0{i}.js")
+              s=p.read_text(encoding="utf-8")
               m=re.search(r"='([^']*)'",s)
-              if not m: raise RuntimeError(f"missing chunk {i}")
+              if not m: raise RuntimeError(f"missing atlas chunk {i}")
               parts.append(m.group(1))
-          alphabet="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
-          prefix="".join(parts[:3]); suffix="".join(parts[3:])
-          ims=[]
-          scores=[]
-          for ch in alphabet:
-              raw=base64.b64decode(prefix+ch+suffix,validate=True)
-              im=Image.open(io.BytesIO(raw)).convert("RGBA")
-              ims.append((ch,im))
-          ref=ims[0][1]
-          for ch,im in ims:
-              d=ImageChops.difference(ref,im)
-              box=d.getbbox()
-              scores.append((ch,box))
-          print("size",ref.size,"diff_boxes_vs_A",scores)
-          # candidate A, plus a contact sheet of 64 candidates for visual inspection
-          raw=base64.b64decode(prefix+"A"+suffix,validate=True)
-          pathlib.Path("hq02-A.webp").write_bytes(raw)
-          ref.save("hq02-A.png")
-          thumbw,thumbh=250,204
-          sheet=Image.new("RGB",(thumbw*8,thumbh*8),(30,30,30))
-          draw=ImageDraw.Draw(sheet)
-          for idx,(ch,im) in enumerate(ims):
-              bg=Image.new("RGB",im.size,(36,36,36)); bg.paste(im.convert("RGB"),mask=im.getchannel("A"))
-              bg.thumbnail((thumbw,thumbh))
-              x=(idx%8)*thumbw; y=(idx//8)*thumbh
-              sheet.paste(bg,(x,y)); draw.text((x+4,y+4),ch,fill=(255,255,0))
-          sheet.save("hq02-candidates.jpg",quality=88)
+          b64="".join(parts)
+          print("atlas_lengths",[len(x) for x in parts],"sum",len(b64))
+          raw=base64.b64decode(b64,validate=True)
+          pathlib.Path("r-pose-atlas.avif").write_bytes(raw)
+          im=Image.open(io.BytesIO(raw))
+          print("atlas",im.size,im.mode,"frames",getattr(im,"n_frames",1),"bytes",len(raw))
+          im.convert("RGBA").save("r-pose-atlas.png")
           PY
       - uses: actions/upload-artifact@v4
         with:
-          name: hq02-inspect
+          name: r-pose-atlas-inspect
           path: |
-            hq02-A.webp
-            hq02-A.png
-            hq02-candidates.jpg
+            r-pose-atlas.avif
+            r-pose-atlas.png
