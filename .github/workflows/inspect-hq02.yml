@@ -17,11 +17,22 @@ jobs:
         run: |
           python - <<'PY'
           from PIL import Image, ImageDraw
-          p="red-mobile-a8/assets/r-body-v1/pose_02_chin_rest_hq.webp"
-          im=Image.open(p).convert("RGBA")
-          print("size", im.size)
+          import base64,re,pathlib
+          parts=[]
+          for i in range(6):
+              p=pathlib.Path(f"red-mobile-a8/assets/r-body-v1/hq02/chunk-{i}.js")
+              s=p.read_text(encoding="utf-8")
+              m=re.search(r"='([^']*)'",s)
+              if not m:
+                  raise RuntimeError(f"missing chunk {i}")
+              parts.append(m.group(1))
+          raw=base64.b64decode("".join(parts))
+          pathlib.Path("hq02.webp").write_bytes(raw)
+          im=Image.open("hq02.webp").convert("RGBA")
+          print("size", im.size, "bytes", len(raw))
           im.save("hq02.png")
-          g=im.convert("RGB")
+          g=Image.new("RGB",im.size,(24,24,24))
+          g.paste(im.convert("RGB"),mask=im.getchannel("A"))
           d=ImageDraw.Draw(g)
           w,h=g.size
           for x in range(0,w,25):
@@ -36,5 +47,6 @@ jobs:
         with:
           name: hq02-inspect
           path: |
+            hq02.webp
             hq02.png
             hq02-grid.png
