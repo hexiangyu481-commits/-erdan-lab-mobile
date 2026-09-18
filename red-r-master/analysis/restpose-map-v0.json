@@ -1,0 +1,139 @@
+{
+  "schema": "red-r-master-restpose-map/v0",
+  "status": "measured_not_baked",
+  "sources": {
+    "mona": {
+      "file": "Mona.blend",
+      "sha256": "a0374ddf36ccdb3a94a4ccd9faa8735ecf15776a6f8011c33ba13d12a59c77ed",
+      "blender_version": "4.04",
+      "armature": "Mona_Armature",
+      "main_mesh": "Mona_Main",
+      "bone_count": 505
+    },
+    "lapine": {
+      "file": "Lapine_Ver.1.11_A.zip",
+      "sha256": "8e215aeae8d2e42719305d66292b84c2714f616b7952591dee0383c376c86af4",
+      "fbx": "Lapine_BaseBody.fbx",
+      "fbx_version": 7500,
+      "official_unity_humanoid_mappings": 53
+    }
+  },
+  "coordinate_note": {
+    "mona": "Blender Z-up; source rig is an A-pose.",
+    "lapine": "FBX Y-up; official humanoid skeleton is effectively a T-pose.",
+    "decision": "Do NOT copy Lapine world joint coordinates into Mona. Preserve Mona rest-pose directions and transfer dimensions/ratios only."
+  },
+  "confirmed_measurements_m": {
+    "lapine": {
+      "upper_leg": 0.40910531516039506,
+      "lower_leg": 0.43099702241739707,
+      "foot_to_toe_base": 0.11746478611370792,
+      "upper_arm": 0.19999641615894467,
+      "lower_arm": 0.22955605844757296,
+      "hip_joint_width": 0.13743670697774774,
+      "upper_arm_head_width": 0.21998980582974342,
+      "pelvis_to_shoulder_vertical": 0.41730235353393463,
+      "pelvis_to_neck_vertical": 0.458064158563005,
+      "pelvis_to_head_vertical": 0.5317365083525369
+    },
+    "mona": {
+      "upper_leg": 0.3586978653628806,
+      "lower_leg": 0.42772590987979087,
+      "foot_to_toe_base": 0.1608908987813994,
+      "upper_arm": 0.23925636913214893,
+      "lower_arm": 0.26152933111074605,
+      "hip_joint_width": 0.20820005238056188,
+      "upper_arm_head_width": 0.22524438053382154,
+      "pelvis_to_shoulder_vertical": 0.43883705139160156,
+      "pelvis_to_neck_vertical": 0.4826812744140625,
+      "pelvis_to_head_vertical": 0.5628737211227417
+    }
+  },
+  "target_ratios_lapine_over_mona": {
+    "upper_leg": 1.1405289929632538,
+    "lower_leg": 1.0076476838602682,
+    "foot_to_toe_base": 0.7300896881265233,
+    "upper_arm": 0.835908431129289,
+    "lower_arm": 0.8777449836032585,
+    "hip_joint_width": 0.6601185033639271,
+    "upper_arm_head_width": 0.9766716723781301,
+    "pelvis_to_shoulder_vertical": 0.9509278038639217,
+    "pelvis_to_neck_vertical": 0.9489992316753104,
+    "pelvis_to_head_vertical": 0.9446817081669817
+  },
+  "primary_mona_bones": {
+    "left_leg": ["UpperLeg.L","LowerLeg.L","Foot.L","Toe.L"],
+    "right_leg": ["UpperLeg.R","LowerLeg.R","Foot.R","Toe.R"],
+    "left_arm": ["Shoulder.L","UpperArm.L","LowerArm.L","Hand.L"],
+    "right_arm": ["Shoulder.R","UpperArm.R","LowerArm.R","Hand.R"],
+    "torso": ["LowerBodyStretch","UpperBody1","UpperBody2","UpperBody3","UpperBody3Stretch"],
+    "neck_head": ["Neck1","Neck2","Head","HeadStretch"]
+  },
+  "protected_bones": {
+    "policy": "Never rename/delete. During v0, protected subsystems may only follow parent/region transforms; do not independently retarget them.",
+    "adult_structure_exact": ["Labia.L","Labia.R","Rectum","Asshole","AssholeSide.L","AssholeSide.R","Ass.L","Ass.R","Assbutt.L","Assbutt.R"],
+    "oral_core_exact": ["LowerJaw","MidJaw","UpperJaw","UpperTeeth","LowerTeeth","TongueRoot","Tongue1","Tongue2","Tongue3","TongueTip","Throat1","Throat2","Uvula1","Uvula2"],
+    "pattern_locks": ["*IK*","*Pole*","*Target*","*Tracker*","*Control*","*Stretch*","*Master*","Eye*","*Eyelid*","Brow*","Nose*","Cheek*","*Lip*","Chin*","Tongue*","Throat*","Uvula*","Thumb*","f_index*","f_middle*","f_ring*","f_pinky*"]
+  },
+  "v0_application": {
+    "safe_preview_only": ["UpperLeg.L/R length","LowerLeg.L/R length","Foot.L/R length","UpperArm.L/R length","LowerArm.L/R length","torso vertical compression","neck/head vertical compression"],
+    "deferred_until_mesh_validation": ["hip joint width 0.660119 ratio","pelvis soft tissue/anatomy rebalance","shoulder anchor translation","rest-pose bake","weight correction"],
+    "hands_fingers": "Preserve Mona v0; current palm/finger scale is already close to Lapine.",
+    "face": "No independent Mona face retarget in v0. Lapine face remains the later appearance donor."
+  },
+  "lapine_official_unity_humanoid_map": {
+    "Hips": "Hips",
+    "LeftUpperLeg": "L_UpperLeg",
+    "RightUpperLeg": "R_UpperLeg",
+    "LeftLowerLeg": "L_LowerLeg",
+    "RightLowerLeg": "R_LowerLeg",
+    "LeftFoot": "L_Foot",
+    "RightFoot": "R_Foot",
+    "Spine": "Spine",
+    "LeftShoulder": "L_Shoulder_Humanoid",
+    "RightShoulder": "R_Shoulder_Humanoid",
+    "LeftUpperArm": "L_UpperArm_Humanoid",
+    "RightUpperArm": "R_UpperArm_Humanoid",
+    "LeftLowerArm": "L_LowerArm_Humanoid",
+    "RightLowerArm": "R_LowerArm_Humanoid",
+    "LeftHand": "L_Hand_Humanoid",
+    "RightHand": "R_Hand_Humanoid",
+    "LeftToes": "L_Toes",
+    "RightToes": "R_Toes",
+    "LeftEye": "LeftEye",
+    "RightEye": "RightEye",
+    "Left Thumb Proximal": "L_ThumbProximal_Humanoid",
+    "Left Thumb Intermediate": "L_ThumbIntermediate_Humanoid",
+    "Left Thumb Distal": "L_ThumbDistal_Humanoid",
+    "Left Index Proximal": "L_IndexProximal_Humanoid",
+    "Left Index Intermediate": "L_IndexIntermediate_Humanoid",
+    "Left Index Distal": "L_IndexDistal_Humanoid",
+    "Left Middle Proximal": "L_MiddleProximal_Humanoid",
+    "Left Middle Intermediate": "L_MiddleIntermediate_Humanoid",
+    "Left Middle Distal": "L_MiddleDistal_Humanoid",
+    "Left Ring Proximal": "L_RingProximal_Humanoid",
+    "Left Ring Intermediate": "L_RingIntermediate_Humanoid",
+    "Left Ring Distal": "L_RingDistal_Humanoid",
+    "Left Little Proximal": "L_LittleProximal_Humanoid",
+    "Left Little Intermediate": "L_LittleIntermediate_Humanoid",
+    "Left Little Distal": "L_LittleDistal_Humanoid",
+    "Right Thumb Proximal": "R_ThumbProximal_Humanoid",
+    "Right Thumb Intermediate": "R_ThumbIntermediate_Humanoid",
+    "Right Thumb Distal": "R_ThumbDistal_Humanoid",
+    "Right Index Proximal": "R_IndexProximal_Humanoid",
+    "Right Index Intermediate": "R_IndexIntermediate_Humanoid",
+    "Right Index Distal": "R_IndexDistal_Humanoid",
+    "Right Middle Proximal": "R_MiddleProximal_Humanoid",
+    "Right Middle Intermediate": "R_MiddleIntermediate_Humanoid",
+    "Right Middle Distal": "R_MiddleDistal_Humanoid",
+    "Right Ring Proximal": "R_RingProximal_Humanoid",
+    "Right Ring Intermediate": "R_RingIntermediate_Humanoid",
+    "Right Ring Distal": "R_RingDistal_Humanoid",
+    "Right Little Proximal": "R_LittleProximal_Humanoid",
+    "Right Little Intermediate": "R_LittleIntermediate_Humanoid",
+    "Right Little Distal": "R_LittleDistal_Humanoid",
+    "Neck": "Neck",
+    "Head": "Head",
+    "Chest": "Chest"
+  }
+}
