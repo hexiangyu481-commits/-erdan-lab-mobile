@@ -1,4 +1,4 @@
-name: Inspect historical HQ02
+name: Inspect pose preview
 on:
   push:
     paths:
@@ -9,36 +9,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       - run: pip install pillow
-      - name: Extract historical HQ02 assets
+      - name: Decode pose preview
         run: |
-          set -e
-          git show a3a29deda8803fa61f1dd2feff72b614578630db:red-mobile-a8/assets/r-body-v1/pose_02_chin_rest_hq.webp > hq02-a3a29.webp
-          git show d8ec841f6095d70974fe4d4c9e745a0de69733cf:red-mobile-a8/assets/r-body-v1/pose_02_chin_rest_hq.webp > hq02-d8ec.webp
           python - <<'PY'
           from PIL import Image
-          import pathlib,hashlib
-          for p in map(pathlib.Path,["hq02-a3a29.webp","hq02-d8ec.webp"]):
-              raw=p.read_bytes()
-              print(p.name,"bytes",len(raw),"sha256",hashlib.sha256(raw).hexdigest(),"head",raw[:16])
-              try:
-                  im=Image.open(p); im.load()
-                  print("DECODE_OK",p.name,im.size,im.mode)
-                  im.convert("RGBA").save(p.with_suffix(".png"))
-              except Exception as e:
-                  print("DECODE_FAIL",p.name,repr(e))
+          p="red-mobile-a8/assets/r-body-v1/pose-preview.webp"
+          im=Image.open(p); im.load()
+          print("pose-preview",im.size,im.mode)
+          im.convert("RGBA").save("pose-preview.png")
           PY
       - uses: actions/upload-artifact@v4
         with:
-          name: historical-hq02
+          name: pose-preview-inspect
           path: |
-            hq02-a3a29.webp
-            hq02-d8ec.webp
-            hq02-a3a29.png
-            hq02-d8ec.png
-          if-no-files-found: warn
+            red-mobile-a8/assets/r-body-v1/pose-preview.webp
+            pose-preview.png
