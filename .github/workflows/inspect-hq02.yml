@@ -13,43 +13,49 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install pillow
-      - name: Recover missing base64 symbol and verify HQ02
+      - name: Render candidate HQ02 and diff probes
         run: |
           python - <<'PY'
-          from PIL import Image
-          import base64,re,pathlib,io,string
+          from PIL import Image, ImageChops, ImageDraw
+          import base64,re,pathlib,io,math
           parts=[]
           for i in range(6):
               s=pathlib.Path(f"red-mobile-a8/assets/r-body-v1/hq02/chunk-{i}.js").read_text(encoding="utf-8")
               m=re.search(r"='([^']*)'",s)
               if not m: raise RuntimeError(f"missing chunk {i}")
               parts.append(m.group(1))
-          print("lengths", [len(x) for x in parts], "sum", sum(map(len,parts)))
           alphabet="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
-          prefix="".join(parts[:3])
-          suffix="".join(parts[3:])
-          ok=[]
+          prefix="".join(parts[:3]); suffix="".join(parts[3:])
+          ims=[]
+          scores=[]
           for ch in alphabet:
-              b64=prefix+ch+suffix
-              try:
-                  raw=base64.b64decode(b64,validate=True)
-                  im=Image.open(io.BytesIO(raw))
-                  im.load()
-                  ok.append((ch,im.size,im.mode,len(raw)))
-              except Exception:
-                  pass
-          print("VALID_CANDIDATES",ok)
-          if len(ok)!=1:
-              raise SystemExit(f"expected 1 valid candidate, got {len(ok)}")
-          ch,size,mode,n=ok[0]
-          raw=base64.b64decode(prefix+ch+suffix,validate=True)
-          pathlib.Path("hq02-recovered.webp").write_bytes(raw)
-          Image.open(io.BytesIO(raw)).convert("RGBA").save("hq02-recovered.png")
-          print("RECOVERED_CHAR",ch,"SIZE",size,"MODE",mode,"BYTES",n)
+              raw=base64.b64decode(prefix+ch+suffix,validate=True)
+              im=Image.open(io.BytesIO(raw)).convert("RGBA")
+              ims.append((ch,im))
+          ref=ims[0][1]
+          for ch,im in ims:
+              d=ImageChops.difference(ref,im)
+              box=d.getbbox()
+              scores.append((ch,box))
+          print("size",ref.size,"diff_boxes_vs_A",scores)
+          # candidate A, plus a contact sheet of 64 candidates for visual inspection
+          raw=base64.b64decode(prefix+"A"+suffix,validate=True)
+          pathlib.Path("hq02-A.webp").write_bytes(raw)
+          ref.save("hq02-A.png")
+          thumbw,thumbh=250,204
+          sheet=Image.new("RGB",(thumbw*8,thumbh*8),(30,30,30))
+          draw=ImageDraw.Draw(sheet)
+          for idx,(ch,im) in enumerate(ims):
+              bg=Image.new("RGB",im.size,(36,36,36)); bg.paste(im.convert("RGB"),mask=im.getchannel("A"))
+              bg.thumbnail((thumbw,thumbh))
+              x=(idx%8)*thumbw; y=(idx//8)*thumbh
+              sheet.paste(bg,(x,y)); draw.text((x+4,y+4),ch,fill=(255,255,0))
+          sheet.save("hq02-candidates.jpg",quality=88)
           PY
       - uses: actions/upload-artifact@v4
         with:
-          name: hq02-recovered
+          name: hq02-inspect
           path: |
-            hq02-recovered.webp
-            hq02-recovered.png
+            hq02-A.webp
+            hq02-A.png
+            hq02-candidates.jpg
