@@ -1,0 +1,40 @@
+name: Inspect HQ02
+on:
+  push:
+    paths:
+      - ".github/workflows/inspect-hq02.yml"
+  workflow_dispatch:
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pillow
+      - name: Render inspection images
+        run: |
+          python - <<'PY'
+          from PIL import Image, ImageDraw
+          p="red-mobile-a8/assets/r-body-v1/pose_02_chin_rest_hq.webp"
+          im=Image.open(p).convert("RGBA")
+          print("size", im.size)
+          im.save("hq02.png")
+          g=im.convert("RGB")
+          d=ImageDraw.Draw(g)
+          w,h=g.size
+          for x in range(0,w,25):
+              d.line((x,0,x,h),fill=(255,0,0),width=1)
+              d.text((x+1,1),str(x),fill=(255,255,0))
+          for y in range(0,h,25):
+              d.line((0,y,w,y),fill=(0,255,255),width=1)
+              d.text((1,y+1),str(y),fill=(255,255,0))
+          g.save("hq02-grid.png")
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hq02-inspect
+          path: |
+            hq02.png
+            hq02-grid.png
