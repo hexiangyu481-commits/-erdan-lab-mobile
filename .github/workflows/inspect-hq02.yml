@@ -1,4 +1,4 @@
-name: Inspect R Assets
+name: Inspect historical HQ02
 on:
   push:
     paths:
@@ -9,34 +9,36 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install pillow pillow-avif-plugin
-      - name: Assemble pose atlas
+      - run: pip install pillow
+      - name: Extract historical HQ02 assets
         run: |
+          set -e
+          git show a3a29deda8803fa61f1dd2feff72b614578630db:red-mobile-a8/assets/r-body-v1/pose_02_chin_rest_hq.webp > hq02-a3a29.webp
+          git show d8ec841f6095d70974fe4d4c9e745a0de69733cf:red-mobile-a8/assets/r-body-v1/pose_02_chin_rest_hq.webp > hq02-d8ec.webp
           python - <<'PY'
-          import base64,re,pathlib,io
           from PIL import Image
-          import pillow_avif
-          parts=[]
-          for i in range(8):
-              p=pathlib.Path(f"red-mobile-a8/assets/r-body-v2/atlas/chunk-0{i}.js")
-              s=p.read_text(encoding="utf-8")
-              m=re.search(r"='([^']*)'",s)
-              if not m: raise RuntimeError(f"missing atlas chunk {i}")
-              parts.append(m.group(1))
-          b64="".join(parts)
-          print("atlas_lengths",[len(x) for x in parts],"sum",len(b64))
-          raw=base64.b64decode(b64,validate=True)
-          pathlib.Path("r-pose-atlas.avif").write_bytes(raw)
-          im=Image.open(io.BytesIO(raw))
-          print("atlas",im.size,im.mode,"frames",getattr(im,"n_frames",1),"bytes",len(raw))
-          im.convert("RGBA").save("r-pose-atlas.png")
+          import pathlib,hashlib
+          for p in map(pathlib.Path,["hq02-a3a29.webp","hq02-d8ec.webp"]):
+              raw=p.read_bytes()
+              print(p.name,"bytes",len(raw),"sha256",hashlib.sha256(raw).hexdigest(),"head",raw[:16])
+              try:
+                  im=Image.open(p); im.load()
+                  print("DECODE_OK",p.name,im.size,im.mode)
+                  im.convert("RGBA").save(p.with_suffix(".png"))
+              except Exception as e:
+                  print("DECODE_FAIL",p.name,repr(e))
           PY
       - uses: actions/upload-artifact@v4
         with:
-          name: r-pose-atlas-inspect
+          name: historical-hq02
           path: |
-            r-pose-atlas.avif
-            r-pose-atlas.png
+            hq02-a3a29.webp
+            hq02-d8ec.webp
+            hq02-a3a29.png
+            hq02-d8ec.png
+          if-no-files-found: warn
