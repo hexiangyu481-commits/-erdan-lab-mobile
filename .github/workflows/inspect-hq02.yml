@@ -13,42 +13,43 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install pillow
-      - name: Render inspection images
+      - name: Recover missing base64 symbol and verify HQ02
         run: |
           python - <<'PY'
-          from PIL import Image, ImageDraw
-          import base64,re,pathlib
+          from PIL import Image
+          import base64,re,pathlib,io,string
           parts=[]
           for i in range(6):
-              p=pathlib.Path(f"red-mobile-a8/assets/r-body-v1/hq02/chunk-{i}.js")
-              s=p.read_text(encoding="utf-8")
+              s=pathlib.Path(f"red-mobile-a8/assets/r-body-v1/hq02/chunk-{i}.js").read_text(encoding="utf-8")
               m=re.search(r"='([^']*)'",s)
-              if not m:
-                  raise RuntimeError(f"missing chunk {i}")
+              if not m: raise RuntimeError(f"missing chunk {i}")
               parts.append(m.group(1))
-          b64="".join(parts)
-          b64 += "=" * ((4-len(b64)%4)%4)
-          raw=base64.b64decode(b64)
-          pathlib.Path("hq02.webp").write_bytes(raw)
-          im=Image.open("hq02.webp").convert("RGBA")
-          print("size", im.size, "bytes", len(raw))
-          im.save("hq02.png")
-          g=Image.new("RGB",im.size,(24,24,24))
-          g.paste(im.convert("RGB"),mask=im.getchannel("A"))
-          d=ImageDraw.Draw(g)
-          w,h=g.size
-          for x in range(0,w,25):
-              d.line((x,0,x,h),fill=(255,0,0),width=1)
-              d.text((x+1,1),str(x),fill=(255,255,0))
-          for y in range(0,h,25):
-              d.line((0,y,w,y),fill=(0,255,255),width=1)
-              d.text((1,y+1),str(y),fill=(255,255,0))
-          g.save("hq02-grid.png")
+          print("lengths", [len(x) for x in parts], "sum", sum(map(len,parts)))
+          alphabet="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+          prefix="".join(parts[:3])
+          suffix="".join(parts[3:])
+          ok=[]
+          for ch in alphabet:
+              b64=prefix+ch+suffix
+              try:
+                  raw=base64.b64decode(b64,validate=True)
+                  im=Image.open(io.BytesIO(raw))
+                  im.load()
+                  ok.append((ch,im.size,im.mode,len(raw)))
+              except Exception:
+                  pass
+          print("VALID_CANDIDATES",ok)
+          if len(ok)!=1:
+              raise SystemExit(f"expected 1 valid candidate, got {len(ok)}")
+          ch,size,mode,n=ok[0]
+          raw=base64.b64decode(prefix+ch+suffix,validate=True)
+          pathlib.Path("hq02-recovered.webp").write_bytes(raw)
+          Image.open(io.BytesIO(raw)).convert("RGBA").save("hq02-recovered.png")
+          print("RECOVERED_CHAR",ch,"SIZE",size,"MODE",mode,"BYTES",n)
           PY
       - uses: actions/upload-artifact@v4
         with:
-          name: hq02-inspect
+          name: hq02-recovered
           path: |
-            hq02.webp
-            hq02.png
-            hq02-grid.png
+            hq02-recovered.webp
+            hq02-recovered.png
