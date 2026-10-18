@@ -1,6 +1,6 @@
 # EH LightReader Cloud pilot (isolated from R)
 
-This Worker reuses the published EH LightReader static assets in sibling directory `../eh-lightreader`. It has its own Worker name `eh-lightreader-cloud` and does not modify `red-a8-mind` or any R secrets or KV.
+This Worker contains a **separate copy** of the released EH LightReader static assets in `public/`. The original GitHub Pages project stays unchanged. It has its own Worker name `eh-lightreader-cloud` and does not modify `red-a8-mind` or any R secrets or KV.
 
 ## Deploy using existing Cloudflare account
 
