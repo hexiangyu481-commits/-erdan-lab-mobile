@@ -4,7 +4,7 @@ This Worker contains a **separate copy** of the released EH LightReader static a
 
 ## Deploy using existing Cloudflare account
 
-On Cloudflare Workers & Pages, create a **new** Worker with GitHub repository `hexiangyu481-commits/-erdan-lab-mobile`; root directory `eh-lightreader-cloud`, branch `feature/eh-lightreader-cloud-pilot`, build command `npx wrangler deploy`. Do not attach this folder to the existing red-a8-mind Worker. Set the Worker name to `eh-lightreader-cloud`.
+On Cloudflare Workers & Pages, create a **new** Worker with GitHub repository `hexiangyu481-commits/-erdan-lab-mobile`; root directory `eh-lightreader-cloud`, production branch `main`, build command `npx wrangler deploy`. Do not attach this folder to the existing red-a8-mind Worker. Set the Worker name to `eh-lightreader-cloud`.
 
 After deployment, open `https://eh-lightreader-cloud.<your-subdomain>.workers.dev/api/health` and ensure `ok=true`. Then use the Worker root for the pilot PWA.
 
