@@ -1,0 +1,29 @@
+{
+  "project": "EH LightReader Cloud Pilot",
+  "version": "1.4.0-pilot",
+  "base_userscripts": "v1.3.2",
+  "deployment": {
+    "github_main_merged": true,
+    "cloudflare_worker_deployed": false,
+    "reason": "Cloudflare account import/authorization is not available through the GitHub connector.",
+    "r_project_modified": false
+  },
+  "tests": {
+    "github_actions_offline": "passed",
+    "cloudflare_live_api": "not_tested",
+    "site_egress": "not_tested",
+    "iphone_pwa": "not_tested",
+    "reader_images": "not_tested"
+  },
+  "limits": [
+    "No user login or cookies are imported.",
+    "Public E-Hentai access may be denied or rate-limited.",
+    "Reader images currently use validated direct URLs and may fail due to remote access rules.",
+    "Cloudflare account owner must import the Worker once; no card required for free-plan pilot."
+  ],
+  "next": [
+    "Connect isolated Cloudflare Worker from existing GitHub repo using project root eh-lightreader-cloud.",
+    "Check /api/health first then public /api/search.",
+    "Verify search/catalog/page/image on iPhone before changing existing Userscripts."
+  ]
+}
