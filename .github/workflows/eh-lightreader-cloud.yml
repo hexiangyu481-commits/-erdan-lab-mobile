@@ -1,0 +1,25 @@
+name: EH LightReader Cloud Pilot CI
+on:
+  push:
+    branches: [main, feature/eh-lightreader-cloud-pilot]
+    paths:
+      - 'eh-lightreader-cloud/**'
+      - '.github/workflows/eh-lightreader-cloud.yml'
+  pull_request:
+    paths:
+      - 'eh-lightreader-cloud/**'
+      - '.github/workflows/eh-lightreader-cloud.yml'
+jobs:
+  pilot-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax
+        run: |
+          node --check eh-lightreader-cloud/src/index.js
+          node --check eh-lightreader-cloud/src/bridge.js
+      - name: Offline tests
+        run: node --test eh-lightreader-cloud/tests/*.test.mjs
