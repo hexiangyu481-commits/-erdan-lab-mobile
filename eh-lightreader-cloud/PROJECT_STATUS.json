@@ -1,19 +1,19 @@
 {
   "project": "EH LightReader Cloud Pilot",
-  "version": "1.4.0-pilot.1",
+  "version": "1.4.0-pilot.2",
   "base_userscripts": "v1.3.2",
   "deployment": {
     "github_main_merged": true,
     "cloudflare_worker_deployed": true,
-    "reason": "Cloudflare account import/authorization is not available through the GitHub connector.",
+    "reason": "Cloudflare account was linked and Worker started, but this connector cannot inspect Cloudflare deployment versions.",
     "r_project_modified": false,
-    "verification": "User-provided iPhone screenshot of /api/health returned ok=true for 1.4.0-pilot; current cloud release not independently verified."
+    "verification": "v1.4.0-pilot health and home were accessible in user iPhone video; deployment of pilot.2 is not confirmed yet."
   },
   "tests": {
-    "github_actions_offline": "passed for 1.4.0-pilot.1 with HTML bridge closing-tag regression; real device recheck pending",
+    "github_actions_offline": "passed pilot.2 static bootstrap and worker regressions (2026-10-19); real iPhone pending",
     "cloudflare_live_api": "not_tested",
     "site_egress": "not_tested",
-    "iphone_pwa": "Observed original-site redirect in user video 2026-10-19; fix staged, retest pending",
+    "iphone_pwa": "old Worker showed original E-Hentai navigation in user video; pilot.2 cloud bootstrap fix awaiting real iPhone verification",
     "reader_images": "not_tested"
   },
   "limits": [
@@ -23,8 +23,8 @@
     "Cloudflare account owner must import the Worker once; no card required for free-plan pilot."
   ],
   "next": [
-    "Cloudflare GitHub automatic redeploy of main must pick up 1.4.0-pilot.1; validate /__ehr_cloud.js and cloud label.",
-    "On iPhone, reload cloud homepage, tap search and category; no navigation to e-hentai.org should occur if bridge is injected.",
-    "Test live /api/search and image loading separately; preserve Userscripts v1.3.2 fallback."
+    "Check that /api/health reports version 1.4.0-pilot.2 (GitHub CI success is not equivalent to Cloudflare deployment).",
+    "Reload cloud homepage from a fresh Safari tab, verify cloud label appears and selecting categories/search stays on cloud origin.",
+    "Test real E-Hentai cloud access and image display; continue using v1.3.2 Userscripts fallback until verified."
   ]
 }
