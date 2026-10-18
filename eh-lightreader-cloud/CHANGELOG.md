@@ -1,5 +1,12 @@
 # EH LightReader Cloud — CHANGELOG
 
+## v1.4.0-pilot.2 · 2026-10-19
+
+**Second fix:** The pilot.1 Worker dynamically modified the decompression bootstrap before serving it. This dependency was fragile and hard to verify across Cloudflare asset cache/deploy versions. Moved the valid cloud bridge script injection directly into `public/index.html` (cloud-only build), and changed the Worker to serve that static loader unchanged with `Cache-Control: no-store` for the homepage. No changes to R or the stable Userscripts 1.3.2.
+
+**Tests:** Added a regression that executes the actual bootstrap injection and checks for an executable `</script>` element; verifies the Worker returns assets without rewriting. GitHub Actions passed. Cloudflare live deployment and real iPhone acceptance are still not verified.
+
+
 ## v1.4.0-pilot.1 · 2026-10-19
 
 **Bug:** Opening a category or performing a search in the Cloudflare-hosted PWA still navigated to the original E-Hentai page. The user's iPhone recording confirmed that the old Userscripts handled that original page instead.
