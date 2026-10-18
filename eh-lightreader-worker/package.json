@@ -1,9 +1,0 @@
-{
-  "name":"eh-lightreader-worker",
-  "version":"1.4.0-beta.1",
-  "private":true,
-  "type":"module",
-  "scripts":{"test":"node --test","deploy":"wrangler deploy","dev":"wrangler dev"},
-  "cloudflare":{"bindings":{"EHLR_ACCESS_KEY":{"description":"自己生成 20 位以上的独立随机连接密码，不要复用 R 的 RED_SHARED_TOKEN。"}}},
-  "devDependencies":{"wrangler":"^4.102.0"}
-}
