@@ -19,39 +19,37 @@ test("API rejects arbitrary page proxy hosts and bad gallery ids", async () => {
   const b = await cloud.fetch(new Request("https://example.workers.dev/api/gallery?gid=hello&token=a"), {});
   assert.equal(b.status, 400);
 });
-test("HTML loader keeps original app and adds cloud sidecar", async () => {
-  const fixture = "<!doctype html><body><script>let page='hi';document.open();document.write(page);document.close()</script></body>";
+test("cloud bootstrap injects valid bridge script after decompression", async () => {
+  const {readFileSync} = await import("node:fs");
+  const html = readFileSync(new URL("../public/index.html", import.meta.url), "utf8");
+  const start = html.indexOf("<script>") + 8;
+  const end = html.indexOf("</script>",start);
+  assert.ok(start >= 8 && end > start, "bootstrap inline JS present");
+  const script = html.slice(start,end);
+  assert.doesNotThrow(() => new Function(script));
+  const anchor = script.indexOf('page=page.replace("</body>"');
+  assert.ok(anchor >= 0, "cloud bridge loaded from static bootstrap");
+  const transform = script.slice(anchor,script.indexOf("document.open();",anchor));
+  const result = new Function("page",transform + "return page;")("<html><body>Hello</body></html>");
+  assert.ok(result.includes("<script src='/__ehr_cloud.js?v=1402'></script>"), "valid tag emitted");
+  assert.equal(result.includes("<\\/script>"),false, "no escaped closing script tag");
+});
+
+test("cloud app loader is no longer rewritten at runtime", async () => {
+  const fixture = "<!doctype html><html><body>Already instrumented</body></html>";
   const response = await cloud.fetch(new Request("https://example.workers.dev/"), {
     ASSETS: {fetch: async () => new Response(fixture, {headers: {"content-type":"text/html"}})}
   });
-  const html = await response.text();
-  assert.equal(response.status, 200);
-  assert.ok(html.includes("/__ehr_cloud.js"));
-  assert.ok(html.includes("document.write(page)"));
+  assert.equal(response.status,200);
+  assert.equal(await response.text(),fixture);
+  assert.ok((response.headers.get("cache-control")||"").includes("no-store"));
 });
+
 test("non-home static assets are delegated unchanged", async () => {
   const response = await cloud.fetch(new Request("https://example.workers.dev/assets/part-0.b64"), {
     ASSETS: {fetch: async () => new Response("raw static asset")}
   });
   assert.equal(await response.text(), "raw static asset");
-});
-
-test("the injected browser script closes correctly instead of leaving an escaped closing tag", async () => {
-  const fixture = '<!doctype html><html><body><script>let page="hi";document.open();document.write(page);document.close()</script></body></html>';
-  const response = await cloud.fetch(new Request("https://example.workers.dev/"), {
-    ASSETS: {fetch: async () => new Response(fixture, {headers: {"content-type":"text/html"}})}
-  });
-  const html = await response.text();
-  const tag = html.match(/<script>([\s\S]*?)<\/script>/);
-  assert.ok(tag, "bootstrap script should remain parseable");
-  assert.doesNotThrow(() => new Function(tag[1]));
-  const start = tag[1].indexOf('page=page.replace("</body>"');
-  assert.notEqual(start, -1, "bridge insertion must be present");
-  const end = tag[1].indexOf("document.open();", start);
-  const transform = tag[1].slice(start, end);
-  const generated = new Function("page", transform + "return page;")("<html><body>Demo</body></html>");
-  assert.match(generated, /<script src=['"]\/__ehr_cloud\.js['"]><\/script>/);
-  assert.equal(generated.includes("<\\/script>"), false, "HTML must not contain an escaped closing script tag");
 });
 
 test("cloud bridge JavaScript is served directly", async () => {
