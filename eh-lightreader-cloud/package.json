@@ -1,6 +1,6 @@
 {
   "name": "eh-lightreader-cloud",
-  "version": "1.4.0-pilot.1",
+  "version": "1.4.0-pilot.2",
   "private": true,
   "type": "module",
   "scripts": {
