@@ -46,7 +46,7 @@ function catalogEntries(html,gid,token){
 }
 async function api(req){
  const u=new URL(req.url),path=u.pathname;
- if(path==="/api/health")return json({ok:true,service:"eh-lightreader-cloud",version:"1.4.0-pilot",r_unchanged:true,userscripts_required:false,real_site_tested:false});
+ if(path==="/api/health")return json({ok:true,service:"eh-lightreader-cloud",version:"1.4.0-pilot.1",r_unchanged:true,userscripts_required:false,real_site_tested:false});
  if(req.method!=="GET")return error("method_not_allowed",405);
  if(path==="/api/search"){
   const q=(u.searchParams.get("q")||"").trim(),page=Number(u.searchParams.get("page")||1),cat=Number(u.searchParams.get("category")||0);
