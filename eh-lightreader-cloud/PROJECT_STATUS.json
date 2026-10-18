@@ -1,18 +1,19 @@
 {
   "project": "EH LightReader Cloud Pilot",
-  "version": "1.4.0-pilot",
+  "version": "1.4.0-pilot.1",
   "base_userscripts": "v1.3.2",
   "deployment": {
     "github_main_merged": true,
-    "cloudflare_worker_deployed": false,
+    "cloudflare_worker_deployed": true,
     "reason": "Cloudflare account import/authorization is not available through the GitHub connector.",
-    "r_project_modified": false
+    "r_project_modified": false,
+    "verification": "User-provided iPhone screenshot of /api/health returned ok=true for 1.4.0-pilot; current cloud release not independently verified."
   },
   "tests": {
-    "github_actions_offline": "passed",
+    "github_actions_offline": "passed for 1.4.0-pilot.1 with HTML bridge closing-tag regression; real device recheck pending",
     "cloudflare_live_api": "not_tested",
     "site_egress": "not_tested",
-    "iphone_pwa": "not_tested",
+    "iphone_pwa": "Observed original-site redirect in user video 2026-10-19; fix staged, retest pending",
     "reader_images": "not_tested"
   },
   "limits": [
@@ -22,8 +23,8 @@
     "Cloudflare account owner must import the Worker once; no card required for free-plan pilot."
   ],
   "next": [
-    "Connect isolated Cloudflare Worker from existing GitHub repo using project root eh-lightreader-cloud.",
-    "Check /api/health first then public /api/search.",
-    "Verify search/catalog/page/image on iPhone before changing existing Userscripts."
+    "Cloudflare GitHub automatic redeploy of main must pick up 1.4.0-pilot.1; validate /__ehr_cloud.js and cloud label.",
+    "On iPhone, reload cloud homepage, tap search and category; no navigation to e-hentai.org should occur if bridge is injected.",
+    "Test live /api/search and image loading separately; preserve Userscripts v1.3.2 fallback."
   ]
 }
