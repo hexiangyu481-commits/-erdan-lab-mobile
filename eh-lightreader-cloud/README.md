@@ -19,3 +19,9 @@ After deployment, open `https://eh-lightreader-cloud.<your-subdomain>.workers.de
 ## APIs
 
 `GET /api/health`, `GET /api/search?q=...`, `GET /api/gallery?gid=...&token=...`, `GET /api/catalog?gid=...&token=...&p=0`, `GET /api/page?url=...`.
+
+One-click Cloudflare import (creates a separate Worker project):
+
+https://deploy.workers.cloudflare.com/?url=https://github.com/hexiangyu481-commits/-erdan-lab-mobile/tree/main/eh-lightreader-cloud
+
+This button may create a new GitHub repository copy. To keep using the original repository instead, import the existing repository from Workers & Pages and set its root directory to `eh-lightreader-cloud`.
