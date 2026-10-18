@@ -99,7 +99,8 @@ export default{async fetch(request,env){
  const marker="document.open();document.write(page);document.close()";
  let html=await response.text();
  if(!html.includes(marker))return new Response("pilot_loader_mismatch",{status:503});
- html=html.replace(marker,"page=page.replace('</body>', '<script src=\\\"/__ehr_cloud.js\\\"><\\\\/script></body>');"+marker);
+ const bridgeInjection = 'page=page.replace("</body>", "<scr" + "ipt src=\'/__ehr_cloud.js\'></scr" + "ipt></body>");';
+ html=html.replace(marker,bridgeInjection+marker);
  const headers=new Headers(response.headers);headers.delete("content-length");headers.set("cache-control","no-store");
  return new Response(html,{status:response.status,headers});
 }};
