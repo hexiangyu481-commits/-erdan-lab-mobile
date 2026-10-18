@@ -46,7 +46,7 @@ function catalogEntries(html,gid,token){
 }
 async function api(req){
  const u=new URL(req.url),path=u.pathname;
- if(path==="/api/health")return json({ok:true,service:"eh-lightreader-cloud",version:"1.4.0-pilot.1",r_unchanged:true,userscripts_required:false,real_site_tested:false});
+ if(path==="/api/health")return json({ok:true,service:"eh-lightreader-cloud",version:"1.4.0-pilot.2",r_unchanged:true,userscripts_required:false,real_site_tested:false});
  if(req.method!=="GET")return error("method_not_allowed",405);
  if(path==="/api/search"){
   const q=(u.searchParams.get("q")||"").trim(),page=Number(u.searchParams.get("page")||1),cat=Number(u.searchParams.get("category")||0);
@@ -96,11 +96,8 @@ export default{async fetch(request,env){
  if(!env.ASSETS)return error("assets_unavailable",503);
  const response=await env.ASSETS.fetch(request);
  if(!["/","/index.html"].includes(path)||!response.ok)return response;
- const marker="document.open();document.write(page);document.close()";
- let html=await response.text();
- if(!html.includes(marker))return new Response("pilot_loader_mismatch",{status:503});
- const bridgeInjection = 'page=page.replace("</body>", "<scr" + "ipt src=\'/__ehr_cloud.js\'></scr" + "ipt></body>");';
- html=html.replace(marker,bridgeInjection+marker);
- const headers=new Headers(response.headers);headers.delete("content-length");headers.set("cache-control","no-store");
- return new Response(html,{status:response.status,headers});
+ const headers=new Headers(response.headers);
+ headers.delete("content-length");
+ headers.set("cache-control","no-store, max-age=0");
+ return new Response(response.body,{status:response.status,statusText:response.statusText,headers});
 }};
